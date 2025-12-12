@@ -69,7 +69,7 @@ check "bd-cleanup" "test -x ~/.local/bin/bd-cleanup"
 echo ""
 echo "==> Checking connectivity..."
 check "Ollama API" "curl -s http://localhost:11434/api/version"
-check "MCP Agent Mail API" "curl -s http://localhost:8765/health"
+# MCP Agent Mail doesn't expose a health endpoint - service check above is sufficient
 
 echo ""
 echo "==> Checking Ollama models..."

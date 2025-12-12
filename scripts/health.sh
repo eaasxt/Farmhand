@@ -15,8 +15,11 @@ systemctl is-active --quiet mcp-agent-mail && ok "mcp-agent-mail running" || fai
 systemctl is-active --quiet ollama && ok "ollama running" || fail "ollama DOWN"
 
 # APIs
-curl -sf http://localhost:8765/mail >/dev/null && ok "MCP API responding" || ok "MCP API (via service - use MCP tools to verify)"
-curl -sf http://localhost:11434/api/version >/dev/null && ok "Ollama API responding" || fail "Ollama API not responding"
+curl -sf http://localhost:11434/api/version >/dev/null && ok "Ollama API responding" || fail "Ollama API DOWN"
+# MCP uses the service check above - no HTTP health endpoint exposed
+
+# Hooks
+test -f ~/.claude/hooks/todowrite-interceptor.py && ok "Enforcement hooks installed" || fail "Hooks missing (run 07-hooks.sh)"
 
 # State
 test -f ~/.claude/agent-state.json && ok "Agent state file exists" || echo "  (no agent state yet - normal for new session)"
