@@ -27,6 +27,8 @@ systemctl is-active mcp-agent-mail 2>/dev/null && echo "mcp-agent-mail: RUNNING"
 systemctl is-active ollama 2>/dev/null && echo "ollama service: RUNNING" || echo "ollama service: NOT RUNNING"
 test -f ~/.beads/beads.db && echo "beads db: OK" || echo "beads db: MISSING"
 test -f ~/CLAUDE.md && echo "CLAUDE.md: OK" || echo "CLAUDE.md: MISSING"
+test -f ~/.claude/hooks/todowrite-interceptor.py && echo "hooks: OK" || echo "hooks: MISSING"
+test -f ~/.local/bin/bd-cleanup && echo "bd-cleanup: OK" || echo "bd-cleanup: MISSING"
 ```
 
 ### Step 1: System Dependencies
@@ -248,7 +250,43 @@ sed -i "/└── CLAUDE.md            # This file/a\\
 \\\n**Bearer Token (remote access only):**\\\n\\\n\\\`\\\`\\\`\\\n$TOKEN\\\n\\\`\\\`\\\`\\\n\\\nLocalhost bypasses auth." ~/CLAUDE.md
 ```
 
-### Step 14: Final Verification
+### Step 14: Install Enforcement Hooks
+
+```bash
+# Create hooks directory
+mkdir -p ~/.claude/hooks
+
+# Copy hooks from JohnDeere repo
+cp ~/JohnDeere/hooks/*.py ~/.claude/hooks/
+chmod +x ~/.claude/hooks/*.py
+
+# Copy bd-cleanup utility
+cp ~/JohnDeere/bin/bd-cleanup ~/.local/bin/
+chmod +x ~/.local/bin/bd-cleanup
+
+# Create settings.json with hook configuration
+cat > ~/.claude/settings.json << 'EOF'
+{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "TodoWrite", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/todowrite-interceptor.py", "timeout": 5}]},
+      {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/reservation-checker.py", "timeout": 5}]}
+    ],
+    "PostToolUse": [
+      {"matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/mcp-state-tracker.py", "timeout": 5}]}
+    ],
+    "SessionStart": [
+      {"matcher": "startup|resume|clear", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/session-init.py", "timeout": 10}]}
+    ]
+  }
+}
+EOF
+
+# Expand $HOME in settings.json
+sed -i "s|\$HOME|$HOME|g" ~/.claude/settings.json
+```
+
+### Step 15: Final Verification
 
 Run each of these and confirm all pass:
 
@@ -264,7 +302,10 @@ curl -s http://localhost:8765/health && echo "MCP Agent Mail API: OK"
 curl -s http://localhost:11434/api/version && echo "Ollama API: OK"
 test -f ~/.beads/beads.db && echo "Beads DB: OK"
 test -f ~/CLAUDE.md && echo "CLAUDE.md: OK"
-test -f ~/.config/claude-code/settings.json && echo "Claude settings: OK"
+test -f ~/.config/claude-code/settings.json && echo "Claude MCP settings: OK"
+test -f ~/.claude/settings.json && echo "Claude hooks settings: OK"
+test -f ~/.claude/hooks/todowrite-interceptor.py && echo "Hooks: OK"
+test -f ~/.local/bin/bd-cleanup && echo "bd-cleanup: OK"
 ollama list | grep -q embeddinggemma && echo "embeddinggemma model: OK"
 echo "=== DONE ==="
 ```
@@ -288,6 +329,21 @@ Once verification passes:
 | `qmd` | Markdown semantic search |
 | MCP Agent Mail | Multi-agent coordination server |
 | Ollama | Local LLM for embeddings/reranking |
+| `bd-cleanup` | Recovery utility for crashed sessions |
+| **Enforcement Hooks** | Block TodoWrite, enforce file reservations |
+
+## Enforcement Layer
+
+The bootstrap installs hooks that **enforce** the multi-agent workflow:
+
+| Hook | What It Does |
+|------|--------------|
+| `todowrite-interceptor.py` | Blocks TodoWrite, suggests bd commands |
+| `reservation-checker.py` | Blocks Edit/Write without registration + file reservation |
+| `mcp-state-tracker.py` | Tracks agent state in `~/.claude/agent-state.json` |
+| `session-init.py` | Cleans stale state on session start |
+
+**Key insight:** Documentation without enforcement is just suggestions. These hooks make the workflow mandatory.
 
 ## Quick Start (Human)
 
@@ -318,9 +374,18 @@ JohnDeere/
 │   ├── 04-mcp-agent-mail.sh
 │   ├── 05-claude-config.sh
 │   ├── 06-services.sh
+│   ├── 07-hooks.sh       # Enforcement hooks installer
 │   └── verify.sh         # Post-install verification
+├── hooks/                # Enforcement hooks (copied to ~/.claude/hooks/)
+│   ├── todowrite-interceptor.py
+│   ├── reservation-checker.py
+│   ├── mcp-state-tracker.py
+│   └── session-init.py
+├── bin/                  # Utilities (copied to ~/.local/bin/)
+│   └── bd-cleanup        # Crash recovery utility
 ├── config/
 │   ├── CLAUDE.md         # Main workflow instructions
+│   ├── claude-settings.json  # Hook configuration template
 │   ├── systemd/          # Service files
 │   └── beads/            # Beads configuration
 └── docs/

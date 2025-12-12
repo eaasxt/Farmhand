@@ -1,302 +1,212 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in multi-agent workflows.
 
 ---
 
-## STOP - Read Before Any Action
+## Before Any Action
 
 ```bash
 bd ready        # What can I work on?
-bd stats        # Project health check
+bd stats        # Project health
 ```
 
-### FORBIDDEN - These Will Break Your Workflow
+### Enforced Rules (Hooks Block Violations)
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│  NEVER use TodoWrite tool         -> use bd commands instead       │
-│  NEVER run bv without --robot-*   -> TUI will hang the agent       │
-│  NEVER edit files without reservation -> causes merge conflicts    │
-│  NEVER work without a bd issue ID -> untracked work is lost work   │
-└────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  TodoWrite              → BLOCKED (use bd instead)                      │
+│  Edit/Write unregistered → BLOCKED (call register_agent first)          │
+│  Edit/Write unreserved   → BLOCKED (call file_reservation_paths first)  │
+│  bv without --robot-*    → TUI hangs agent                              │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## TodoWrite is FORBIDDEN - Use bd Instead
+## Required Workflow
 
-| Instead of TodoWrite | Use bd |
-|----------------------|--------|
-| Creating todos | `bd create --title="..." --type=task` |
-| Marking in_progress | `bd update <id> --status=in_progress` |
-| Marking completed | `bd close <id>` |
-| Listing todos | `bd ready` |
-
----
-
-## The Workflow (Follow Exactly)
-
+### 1. Find & Claim Work
 ```bash
-# 1. Find work
 bd ready
-
-# 2. Claim it
 bd update <id> --status=in_progress
 ```
 
+### 2. Register (ENFORCED)
 ```python
-# 3. Register and get your assigned name (first call only)
 response = register_agent(
-    project_key="/home/ubuntu",
+    project_key="$HOME",
     program="claude-code",
     model="opus-4.5"
 )
-# Response: {"name": "BlueLake", ...}  <-- Use this name for ALL subsequent calls
+# Response: {"name": "BlueLake", ...} ← Save this name
+```
 
-# 4. Reserve files BEFORE editing
+### 3. Reserve Files (ENFORCED)
+```python
 file_reservation_paths(
-    project_key="/home/ubuntu",
-    agent_name="<your-assigned-name>",  # e.g., "BlueLake"
-    paths=["path/to/files/**/*.py"],
+    project_key="$HOME",
+    agent_name="<your-assigned-name>",
+    paths=["src/**/*.py"],
     ttl_seconds=3600,
     exclusive=True,
-    reason="<issue-id>"                 # e.g., "ubuntu-42"
-)
-
-# 5. Announce work (good practice)
-send_message(
-    project_key="/home/ubuntu",
-    sender_name="<your-assigned-name>",
-    to=[],                              # Empty = broadcast to thread
-    subject="[<issue-id>] Starting work",
-    body_md="Working on X...",
-    thread_id="<issue-id>"
+    reason="<issue-id>"
 )
 ```
 
-```bash
-# 6. Do the work
-# ... edit files, run tests, etc.
-```
+### 4. Work
+Now Edit/Write operations will succeed.
 
+### 5. Cleanup
 ```python
-# 7. Release reservations
-release_file_reservations(
-    project_key="/home/ubuntu",
-    agent_name="<your-assigned-name>"
-)
+release_file_reservations(project_key="$HOME", agent_name="<your-name>")
+```
+```bash
+bd close <id> --reason="Done"
 ```
 
-```bash
-# 8. Close the issue
-bd close <id> --reason="Implemented X"
+---
+
+## Error Recovery
+
+**"Agent not registered"** → Call `register_agent()`
+
+**"File not reserved"** → Call `file_reservation_paths()`
+
+**"File reserved by X"** → Message them or wait:
+```python
+send_message(..., to=["X"], subject="Need access to file")
 ```
 
-### If You Discover New Work While Working
+**Session crashed** → Run `bd-cleanup`
 
+**Service down** → `sudo systemctl restart mcp-agent-mail`
+
+---
+
+## Multi-Agent Patterns
+
+### Sequential Handoff
+```python
+# Agent A done
+release_file_reservations(...)
+send_message(..., to=[], subject="[issue-id] Done", thread_id="issue-id")
+```
 ```bash
-bd create --title="Found: new thing" --type=task --deps discovered-from:<current-id>
+bd close <id>
+```
+
+### Parallel (Non-Overlapping)
+```python
+# Agent A: backend
+file_reservation_paths(..., paths=["src/backend/**/*.py"], ...)
+
+# Agent B: frontend (no conflict)
+file_reservation_paths(..., paths=["src/frontend/**/*.tsx"], ...)
+```
+
+### Coordinated Access
+```python
+# Agent A: notify, release, notify
+send_message(..., to=["AgentB"], body_md="Releasing config.py soon")
+release_file_reservations(...)
+send_message(..., to=["AgentB"], body_md="Released!")
+
+# Agent B: now reserve
+file_reservation_paths(..., paths=["src/config.py"], ...)
 ```
 
 ---
 
 ## Tool Reference
 
-### bd (Beads) - Issue Tracking
-
+### bd (Beads)
 ```bash
-# READ
-bd ready                              # Unblocked issues (START HERE)
-bd list --status=open                 # All open issues
-bd list --status=in_progress          # Currently claimed
-bd show <id>                          # Issue details + dependencies
-bd blocked                            # What's stuck and why
-
-# WRITE
-bd create --title="..." --type=task   # New issue
-bd update <id> --status=in_progress   # Claim work
-bd close <id> --reason="Done"         # Complete
-bd dep <blocker> <blocked>            # A blocks B
-
-# ANALYZE
-bd stats                              # Health metrics
+bd ready                    # Available work
+bd create --title="X" --type=task
+bd update <id> --status=in_progress
+bd close <id> --reason="X"
+bd show <id>                # Details
+bd blocked                  # What's stuck
+bd dep <blocker> <blocked>  # Dependencies
 ```
 
-**Issue Types:** `bug` | `feature` | `task` | `epic` | `chore`
-
-**Priority:** `0` critical | `1` high | `2` medium (default) | `3` low | `4` backlog
-
-### bv (Beads Viewer) - Graph Intelligence
-
-**NEVER run `bv` without `--robot-*` flags** - TUI will hang the agent.
-
+### bv (Beads Viewer) - ALWAYS use --robot-*
 ```bash
-bv --robot-help                    # List all safe commands
-bv --robot-plan                    # Execution order with parallel tracks
-bv --robot-priority                # What to work on + reasoning
-bv --robot-insights                # Graph metrics (PageRank, cycles, critical path)
-bv --robot-diff --diff-since "1h"  # Recent changes
+bv --robot-plan       # Execution order
+bv --robot-priority   # What to work on
+bv --robot-insights   # Graph metrics
 ```
 
-| Use bd for | Use bv for |
-|------------|------------|
-| CRUD operations | Graph analysis |
-| "What's next?" | Impact assessment |
-| Status updates | Parallel planning |
-
-### Agent Mail - Multi-Agent Coordination
-
-**Agent Naming:** On `register_agent`, the server assigns you an adjective+noun name (e.g., `BlueLake`, `GreenCastle`). Note your assigned name and use it for ALL subsequent calls.
-
+### Agent Mail
 ```python
-# First call - note the returned name
-register_agent(
-    project_key="/home/ubuntu",
-    program="claude-code",
-    model="opus-4.5"
-)
-# Response: {"name": "BlueLake", ...}
+register_agent(project_key, program, model)
+file_reservation_paths(project_key, agent_name, paths, ttl_seconds, exclusive, reason)
+release_file_reservations(project_key, agent_name)
+send_message(project_key, sender_name, to, subject, body_md, thread_id)
+fetch_inbox(project_key, agent_name)
 ```
 
-**Valid names:** `BlueLake`, `GreenCastle`, `RedStone`
-**Invalid names:** `claude-code`, `opus-4.5`, `BackendAgent`
-
-**Core Tools:**
-
-```python
-# Reserve files (BEFORE editing)
-file_reservation_paths(
-    project_key="/home/ubuntu",
-    agent_name="<your-name>",
-    paths=["src/**/*.py", "tests/**/*.py"],
-    ttl_seconds=3600,
-    exclusive=True,
-    reason="ubuntu-42"
-)
-
-# Send message (thread_id = beads issue ID)
-send_message(
-    project_key="/home/ubuntu",
-    sender_name="<your-name>",
-    to=["OtherAgent"],  # or [] for thread broadcast
-    subject="[ubuntu-42] Status update",
-    body_md="Completed the refactor...",
-    thread_id="ubuntu-42"
-)
-
-# Check inbox
-fetch_inbox(project_key="/home/ubuntu", agent_name="<your-name>")
-
-# Release when done
-release_file_reservations(project_key="/home/ubuntu", agent_name="<your-name>")
-```
-
-**Macros (Faster - Use When Possible):**
-
-```python
-macro_start_session(...)            # register + reserve + fetch inbox
-macro_file_reservation_cycle(...)   # reserve -> edit -> release
-```
-
-**Service Management:**
-
+### qmd (Markdown Search)
 ```bash
-sudo systemctl status mcp-agent-mail   # Check (port 8765)
-sudo systemctl restart mcp-agent-mail  # Restart
-journalctl -u mcp-agent-mail -f        # Logs
+qmd search "keyword"    # BM25
+qmd vsearch "concept"   # Semantic
+qmd query "question"    # Hybrid
 ```
 
-### qmd - Markdown Search
-
+### bd-cleanup
 ```bash
-qmd search "keyword"     # Fast BM25 search
-qmd vsearch "concept"    # Semantic vector search
-qmd query "question"     # Hybrid + reranking (best quality)
-qmd add .                # Index current directory
-qmd status               # Index health
-qmd get "file.md"        # Retrieve content
-```
-
-**Options:** `-n 10` (limit) | `--json` (parseable) | `--files` (paths only) | `--min-score 0.5`
-
-Requires Ollama running (`systemctl status ollama`).
-
----
-
-## Environment
-
-```bash
-export BEADS_DB=/home/ubuntu/.beads/beads.db
-```
-
-**Services:**
-
-| Service | Port | Check Command |
-|---------|------|---------------|
-| MCP Agent Mail | 8765 | `sudo systemctl status mcp-agent-mail` |
-| Ollama | 11434 | `sudo systemctl status ollama` |
-
-**Project Structure:**
-
-```
-/home/ubuntu/
-├── .beads/              # Beads database (BEADS_DB)
-├── .mcp.json            # MCP server config (Claude Code reads this)
-├── .mcp_agent_mail/     # Agent Mail storage
-├── mcp_agent_mail/      # Agent Mail server
-└── CLAUDE.md            # This file
+bd-cleanup              # Interactive
+bd-cleanup --list       # Show orphaned
+bd-cleanup --force      # Cleanup stale
+bd-cleanup --release-all # Nuclear
 ```
 
 ---
 
 ## Linking Convention
 
-Everything links via the beads issue ID:
-
-| Context | Value |
-|---------|-------|
-| Mail `thread_id` | beads issue ID (`ubuntu-42`) |
-| Mail subject | `[ubuntu-42] Description` |
-| Reservation `reason` | `ubuntu-42` |
-| Commit message | Include `ubuntu-42` |
+Use beads issue ID everywhere:
+- `thread_id` in messages
+- `reason` in reservations
+- Subject: `[ubuntu-42] Description`
+- Commits: include `ubuntu-42`
 
 ---
 
-## Anti-Patterns
+## Environment
 
-| Pattern | Why It's Wrong | Correct Approach |
-|---------|----------------|------------------|
-| TodoWrite tool | Duplicates beads, loses sync | `bd create/update/close` |
-| `bv` without `--robot-*` | TUI hangs the agent | `bv --robot-plan` |
-| Edit without reservation | Conflicts with other agents | `file_reservation_paths()` first |
-| Work without issue ID | Untracked, no context | `bd create` then work |
-| Hardcoding agent name | Name assigned by server | Use response from `register_agent` |
-| Forgetting to release | Blocks other agents | `release_file_reservations()` |
-
----
-
-## Quick Decision Tree
-
-```
-Need to track work?           -> bd create --title="..." --type=task
-Need to see what to do?       -> bd ready
-Need graph analysis?          -> bv --robot-priority
-Need to edit files?           -> file_reservation_paths() FIRST
-Need to find docs?            -> qmd query "topic"
-Need to message agents?       -> send_message() with thread_id=<issue-id>
+```bash
+export BEADS_DB=$HOME/.beads/beads.db
 ```
 
+| Service | Port | Check |
+|---------|------|-------|
+| MCP Agent Mail | 8765 | `systemctl status mcp-agent-mail` |
+| Ollama | 11434 | `systemctl status ollama` |
+
 ---
 
-## Rules Summary (Quick Check)
+## Enforcement Hooks
 
-1. `bd ready` first, always
-2. `bd update --status=in_progress` before starting
-3. `register_agent` to get your name
-4. Reserve files via Agent Mail before editing
-5. Use issue ID as `thread_id` everywhere
-6. `release_file_reservations` when done editing
-7. `bd close` when done with issue
-8. Never use TodoWrite
-9. Never run `bv` without `--robot-*` flags
+| Hook | Blocks | Location |
+|------|--------|----------|
+| todowrite-interceptor.py | TodoWrite | ~/.claude/hooks/ |
+| reservation-checker.py | Edit/Write without reg/reserve | ~/.claude/hooks/ |
+| mcp-state-tracker.py | (tracks state) | ~/.claude/hooks/ |
+| session-init.py | (cleanup on start) | ~/.claude/hooks/ |
+
+---
+
+## Rules Summary
+
+1. `bd ready` first
+2. `bd update --status=in_progress` to claim
+3. `register_agent()` **← ENFORCED**
+4. `file_reservation_paths()` **← ENFORCED**
+5. Work (Edit/Write now allowed)
+6. `release_file_reservations()`
+7. `bd close`
+8. TodoWrite **← BLOCKED**
+9. `bv` only with `--robot-*`
+10. `bd-cleanup` for recovery
