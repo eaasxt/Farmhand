@@ -242,6 +242,7 @@ export BEADS_DB=/home/ubuntu/.beads/beads.db
 ```
 /home/ubuntu/
 ├── .beads/              # Beads database (BEADS_DB)
+├── .mcp.json            # MCP server config (Claude Code reads this)
 ├── .mcp_agent_mail/     # Agent Mail storage
 ├── mcp_agent_mail/      # Agent Mail server
 └── CLAUDE.md            # This file
