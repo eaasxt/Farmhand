@@ -14,22 +14,25 @@ export BUN_INSTALL="$HOME/.bun"
 mkdir -p ~/.local/bin ~/.beads
 
 # ============================================
-# bd (beads CLI)
+# bd (beads CLI) - from steveyegge/beads
 # ============================================
 if ! command -v bd &>/dev/null; then
     echo "==> Installing bd..."
 
     # Download the latest bd binary from GitHub releases
-    # Note: Update this URL when new versions are released
-    BD_VERSION="0.2.0"
-    BD_URL="https://github.com/Dicklesworthstone/beads/releases/download/v${BD_VERSION}/bd-linux-amd64"
+    # Source: https://github.com/steveyegge/beads
+    BD_VERSION="0.29.0"
+    BD_URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd_linux_amd64"
 
     if curl -fsSL -o ~/.local/bin/bd "$BD_URL" 2>/dev/null; then
         chmod +x ~/.local/bin/bd
         echo "    Downloaded bd v${BD_VERSION}"
+    elif curl -fsSL -o ~/.local/bin/bd "https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd-linux-amd64" 2>/dev/null; then
+        chmod +x ~/.local/bin/bd
+        echo "    Downloaded bd v${BD_VERSION} (alt URL)"
     else
         echo "    WARNING: Could not download bd automatically."
-        echo "    Please download manually from: https://github.com/Dicklesworthstone/beads/releases"
+        echo "    Please download manually from: https://github.com/steveyegge/beads/releases"
         echo "    Place the binary at: ~/.local/bin/bd"
     fi
 else
@@ -53,18 +56,29 @@ if [[ ! -f ~/.beads/beads.db ]]; then
 fi
 
 # ============================================
-# bv (beads-viewer)
+# bv (beads-viewer) - from Dicklesworthstone/beads_viewer
 # ============================================
 if ! command -v bv &>/dev/null; then
-    echo "==> Installing bv via Homebrew..."
+    echo "==> Installing bv..."
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
-    # bv is available via homebrew tap
-    brew tap dicklesworthstone/beads 2>/dev/null || true
-    brew install beads-viewer 2>/dev/null || {
-        echo "    WARNING: Could not install bv via Homebrew."
-        echo "    It may need to be installed manually."
-    }
+    # Try Homebrew first
+    if brew tap dicklesworthstone/beads 2>/dev/null && brew install beads-viewer 2>/dev/null; then
+        echo "    Installed bv via Homebrew"
+    else
+        # Fallback: download binary from releases
+        echo "    Homebrew failed, downloading binary..."
+        BV_VERSION="0.10.2"
+        BV_URL="https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/beads_viewer_linux_amd64.tar.gz"
+
+        if curl -fsSL "$BV_URL" | tar -xz -C /tmp && mv /tmp/bv ~/.local/bin/bv; then
+            chmod +x ~/.local/bin/bv
+            echo "    Downloaded bv v${BV_VERSION}"
+        else
+            echo "    WARNING: Could not install bv automatically."
+            echo "    Please download from: https://github.com/Dicklesworthstone/beads_viewer/releases"
+        fi
+    fi
 else
     echo "==> bv already installed"
 fi
