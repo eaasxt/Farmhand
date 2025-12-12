@@ -1,0 +1,16 @@
+[Unit]
+Description=MCP Agent Mail Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mcp_agent_mail
+Environment="PATH=/home/ubuntu/.local/bin:/home/ubuntu/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=/home/ubuntu"
+ExecStart=/bin/bash -c 'source /home/ubuntu/.local/bin/env && /home/ubuntu/mcp_agent_mail/scripts/run_server_with_token.sh'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
