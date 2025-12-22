@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+#
+# JohnDeere v2.0.0 - Agentic VM Setup Installer
+#
+# Transforms a fresh Ubuntu VPS into a fully-configured
+# multi-agent AI coding environment.
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/eaasxt/JohnDeere/main/install.sh | bash
+#
+#   Or with options:
+#   ./install.sh --force          # Reinstall everything
+#   ./install.sh --dry-run        # Show what would be done
+#   ./install.sh --minimal        # Skip cloud CLIs
+#   ./install.sh --skip-ollama    # Skip Ollama installation
+#
+
+set -euo pipefail
+
+VERSION="2.0.0"
+JOHNDEERE_HOME="$HOME/.johndeere"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Flags
+FORCE=false
+DRY_RUN=false
+MINIMAL=false
+SKIP_OLLAMA=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --force) FORCE=true; shift ;;
+        --dry-run) DRY_RUN=true; shift ;;
+        --minimal) MINIMAL=true; shift ;;
+        --skip-ollama) SKIP_OLLAMA=true; shift ;;
+        --help|-h)
+            echo "JohnDeere v$VERSION - Agentic VM Setup"
+            echo ""
+            echo "Usage: ./install.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --force        Reinstall all components"
+            echo "  --dry-run      Show what would be done"
+            echo "  --minimal      Skip cloud CLIs (vault, wrangler, etc.)"
+            echo "  --skip-ollama  Skip Ollama installation"
+            echo "  --help         Show this help"
+            exit 0
+            ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+echo -e "${BLUE}"
+echo "╔═══════════════════════════════════════════════════════════════════╗"
+echo "║                                                                   ║"
+echo "║       🚜 JohnDeere v$VERSION - Agentic VM Setup                   ║"
+echo "║                                                                   ║"
+echo "║   Transforming this VM into an AI coding powerhouse...           ║"
+echo "║                                                                   ║"
+echo "╚═══════════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
+
+# Check for existing installation
+if [[ -f "$JOHNDEERE_HOME/version" ]]; then
+    INSTALLED_VERSION=$(cat "$JOHNDEERE_HOME/version")
+    echo -e "${YELLOW}Existing installation detected: v$INSTALLED_VERSION${NC}"
+    if [[ "$FORCE" != true ]]; then
+        echo "Run with --force to reinstall, or use upgrade.sh to upgrade."
+        echo ""
+    fi
+fi
+
+# Pre-flight checks
+echo -e "${BLUE}[Pre-flight] Checking system requirements...${NC}"
+
+# Check OS
+if [[ ! -f /etc/os-release ]]; then
+    echo -e "${RED}ERROR: Cannot detect OS. Ubuntu 22.04+ required.${NC}"
+    exit 1
+fi
+source /etc/os-release
+if [[ "$ID" != "ubuntu" ]]; then
+    echo -e "${RED}ERROR: Ubuntu required, found $ID${NC}"
+    exit 1
+fi
+echo "    OS: $PRETTY_NAME"
+
+# Check architecture
+ARCH=$(uname -m)
+if [[ "$ARCH" != "x86_64" && "$ARCH" != "aarch64" ]]; then
+    echo -e "${RED}ERROR: Unsupported architecture: $ARCH${NC}"
+    exit 1
+fi
+echo "    Architecture: $ARCH"
+
+# Check disk space (need at least 10GB free)
+FREE_SPACE=$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')
+if [[ "$FREE_SPACE" -lt 10 ]]; then
+    echo -e "${YELLOW}WARNING: Less than 10GB free disk space${NC}"
+fi
+echo "    Free disk space: ${FREE_SPACE}GB"
+
+# Check memory (recommend at least 8GB)
+TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
+echo "    Total memory: ${TOTAL_MEM}GB"
+
+if [[ "$DRY_RUN" == true ]]; then
+    echo ""
+    echo -e "${YELLOW}DRY RUN - Would execute the following phases:${NC}"
+    echo "  [1/9] System dependencies (apt, homebrew, bun, uv)"
+    echo "  [2/9] Core tools (bd, bv, qmd, claude)"
+    echo "  [3/9] Stack tools (ubs, ntm, cm, caam, slb, cass)"
+    [[ "$MINIMAL" != true ]] && echo "  [4/9] Cloud CLIs (vault, wrangler, supabase, vercel)"
+    echo "  [5/9] AI agents (codex, gemini, node)"
+    [[ "$SKIP_OLLAMA" != true ]] && echo "  [6/9] Ollama + models"
+    echo "  [7/9] MCP Agent Mail"
+    echo "  [8/9] Shell configuration (zsh, oh-my-zsh, p10k)"
+    echo "  [9/9] Enforcement hooks"
+    exit 0
+fi
+
+echo ""
+
+# Ensure ~/.local/bin exists and is in PATH
+mkdir -p ~/.local/bin
+export PATH="$HOME/.local/bin:$PATH"
+
+# Run installation phases
+source "$SCRIPT_DIR/scripts/install/01-system-deps.sh"
+source "$SCRIPT_DIR/scripts/install/02-core-tools.sh"
+source "$SCRIPT_DIR/scripts/install/03-stack-tools.sh"
+
+if [[ "$MINIMAL" != true ]]; then
+    source "$SCRIPT_DIR/scripts/install/04-cloud-clis.sh"
+fi
+
+source "$SCRIPT_DIR/scripts/install/05-ai-agents.sh"
+
+if [[ "$SKIP_OLLAMA" != true ]]; then
+    source "$SCRIPT_DIR/scripts/install/06-ollama.sh"
+fi
+
+source "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh"
+source "$SCRIPT_DIR/scripts/install/08-shell-config.sh"
+source "$SCRIPT_DIR/scripts/install/09-hooks.sh"
+
+# Record installation
+mkdir -p "$JOHNDEERE_HOME"
+echo "$VERSION" > "$JOHNDEERE_HOME/version"
+date -Iseconds > "$JOHNDEERE_HOME/installed_at"
+
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                                                                   ║${NC}"
+echo -e "${GREEN}║   🎉 JohnDeere v$VERSION installation complete!                   ║${NC}"
+echo -e "${GREEN}║                                                                   ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo "Next steps:"
+echo "  1. Run 'exec zsh' to switch to the new shell"
+echo "  2. Run 'claude' to authenticate Claude Code"
+echo "  3. Run 'codex login --device-auth' to authenticate Codex"
+echo "  4. Run 'gemini' to authenticate Gemini"
+echo ""
+echo "Quick commands:"
+echo "  cla     - Claude Code (dangerous mode)"
+echo "  cod     - Codex CLI (full auto)"
+echo "  gmi     - Gemini CLI (yolo mode)"
+echo "  bd      - Beads issue tracking"
+echo "  ntm     - Named Tmux Manager"
+echo ""
+echo "Verify installation:"
+echo "  $SCRIPT_DIR/scripts/verify.sh"

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/todowrite-interceptor.py",
+            "command": "/home/ubuntu/.claude/hooks/todowrite-interceptor.py",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/reservation-checker.py",
+            "command": "/home/ubuntu/.claude/hooks/reservation-checker.py",
             "timeout": 5
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/mcp-state-tracker.py",
+            "command": "/home/ubuntu/.claude/hooks/mcp-state-tracker.py",
             "timeout": 5
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/session-init.py",
+            "command": "/home/ubuntu/.claude/hooks/session-init.py",
             "timeout": 10
           }
         ]

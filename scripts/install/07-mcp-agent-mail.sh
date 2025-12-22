@@ -45,3 +45,18 @@ fi
 echo "$TOKEN" > /tmp/mcp_agent_mail_token
 
 echo "==> MCP Agent Mail installed at $INSTALL_DIR"
+
+# Set up systemd service
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$SCRIPT_DIR/../.."
+
+echo "    Setting up systemd service..."
+if [[ -f "$REPO_ROOT/config/systemd/mcp-agent-mail.service" ]]; then
+    sudo cp "$REPO_ROOT/config/systemd/mcp-agent-mail.service" /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable mcp-agent-mail
+    sudo systemctl start mcp-agent-mail 2>/dev/null || true
+    echo "    MCP Agent Mail service enabled"
+else
+    echo "    WARNING: systemd service file not found"
+fi

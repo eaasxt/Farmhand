@@ -1,0 +1,25 @@
+#!/bin/bash
+# cass wrapper - runs in Docker with Ubuntu 24.04 for GLIBC 2.39 compatibility
+
+# Detect if we have a TTY
+TTY_FLAG=""
+if [ -t 0 ] && [ -t 1 ]; then
+  TTY_FLAG="-it"
+fi
+
+# Ensure data directory exists
+mkdir -p "$HOME/.local/share/coding-agent-search"
+
+# Mount paths for agent session data
+docker run --rm $TTY_FLAG \
+  --network host \
+  -v /opt/cass/cass:/usr/local/bin/cass:ro \
+  -v "$HOME/.config/claude:$HOME/.config/claude:ro" \
+  -v "$HOME/.claude:$HOME/.claude:ro" \
+  -v "$HOME/.local/share/codex:$HOME/.local/share/codex:ro" \
+  -v "$HOME/.config/gemini:$HOME/.config/gemini:ro" \
+  -v "$HOME/.local/share/coding-agent-search:$HOME/.local/share/coding-agent-search" \
+  -w "$PWD" \
+  -e HOME="$HOME" \
+  -e USER="$USER" \
+  ubuntu:24.04 /usr/local/bin/cass "$@"

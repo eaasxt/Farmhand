@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-bd-cleanup - Multi-Agent Workflow Recovery Utility
---------------------------------------------------
+bd-cleanup - Multi-Agent Workflow Cleanup Utility
+-------------------------------------------------
+Handles recovery from crashes, interrupts, and orphaned state.
+
 Usage:
-  bd-cleanup              # Interactive
-  bd-cleanup --list       # List orphaned items
-  bd-cleanup --force      # Force cleanup stale items
-  bd-cleanup --release-all # Release all reservations
-  bd-cleanup --reset-state # Reset local agent state
+  bd-cleanup                    # Interactive cleanup
+  bd-cleanup --list             # List orphaned items
+  bd-cleanup --force            # Force cleanup all stale items
+  bd-cleanup --release-all      # Release all reservations
+  bd-cleanup --reset-state      # Reset local agent state
 """
 
 import argparse
 import json
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -23,75 +24,100 @@ MCP_STORAGE = Path.home() / ".mcp_agent_mail"
 BEADS_DB = os.environ.get("BEADS_DB", str(Path.home() / ".beads" / "beads.db"))
 
 def get_orphaned_reservations(stale_hours=4):
+    """Find reservations that may be orphaned."""
     orphaned = []
     reservations_dir = MCP_STORAGE / "reservations"
+
     if not reservations_dir.exists():
         return orphaned
 
     now = time.time()
+    stale_threshold = stale_hours * 3600
+
     for res_file in reservations_dir.glob("*.json"):
         try:
             with open(res_file) as f:
                 data = json.load(f)
                 created_at = data.get("created_at", 0)
                 expires_at = data.get("expires_at", 0)
+
                 age_hours = (now - created_at) / 3600 if created_at else 0
+                is_expired = expires_at < now
+                is_stale = age_hours > stale_hours
+
                 orphaned.append({
                     "file": res_file,
                     "agent": data.get("agent_name", "unknown"),
                     "paths": data.get("paths", []),
                     "reason": data.get("reason", ""),
                     "age_hours": round(age_hours, 1),
-                    "is_expired": expires_at < now,
-                    "is_stale": age_hours > stale_hours,
+                    "is_expired": is_expired,
+                    "is_stale": is_stale,
+                    "expires_at": expires_at,
                 })
         except (json.JSONDecodeError, IOError) as e:
-            orphaned.append({"file": res_file, "error": str(e), "is_corrupted": True})
+            orphaned.append({
+                "file": res_file,
+                "error": str(e),
+                "is_corrupted": True
+            })
+
     return orphaned
 
 def get_stuck_issues():
+    """Find issues that are in_progress but may be abandoned."""
     stuck = []
     try:
+        import subprocess
         bd_path = Path.home() / ".local" / "bin" / "bd"
-        if not bd_path.exists():
-            return stuck
         result = subprocess.run(
             [str(bd_path), "list", "--status=in_progress", "--json"],
             capture_output=True, text=True, timeout=10,
             env={**os.environ, "BEADS_DB": BEADS_DB}
         )
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode == 0:
             issues = json.loads(result.stdout)
             now = time.time()
             for issue in issues:
+                # Check if issue has been in_progress for too long
                 updated = issue.get("updated_at", 0)
                 if isinstance(updated, str):
+                    # Parse ISO timestamp
                     from datetime import datetime
                     try:
                         dt = datetime.fromisoformat(updated.replace("Z", "+00:00"))
                         updated = dt.timestamp()
                     except:
                         updated = 0
+
                 age_hours = (now - updated) / 3600 if updated else 0
-                if age_hours > 24:
-                    stuck.append({"id": issue.get("id", ""), "title": issue.get("title", ""), "age_hours": round(age_hours, 1)})
-    except Exception:
-        pass
+                if age_hours > 24:  # Stuck for more than 24 hours
+                    stuck.append({
+                        "id": issue.get("id", ""),
+                        "title": issue.get("title", ""),
+                        "age_hours": round(age_hours, 1),
+                    })
+    except Exception as e:
+        print(f"Warning: Could not check issues: {e}", file=sys.stderr)
+
     return stuck
 
 def list_items():
+    """List all orphaned/stuck items."""
     print("=" * 60)
     print("MULTI-AGENT WORKFLOW CLEANUP")
     print("=" * 60)
     print()
 
+    # Local state
     print("LOCAL AGENT STATE:")
     if STATE_FILE.exists():
         try:
             with open(STATE_FILE) as f:
                 state = json.load(f)
                 print(f"  Registered: {state.get('registered', False)}")
-                print(f"  Agent: {state.get('agent_name', 'None')}")
+                print(f"  Agent Name: {state.get('agent_name', 'None')}")
+                print(f"  Issue ID: {state.get('issue_id', 'None')}")
                 print(f"  Reservations: {len(state.get('reservations', []))}")
         except:
             print("  (corrupted)")
@@ -99,90 +125,136 @@ def list_items():
         print("  (none)")
     print()
 
+    # Reservations
     orphaned = get_orphaned_reservations()
     print(f"FILE RESERVATIONS: ({len(orphaned)} total)")
-    for res in orphaned:
-        if res.get("is_corrupted"):
-            print(f"  [CORRUPTED] {res['file']}")
-        else:
-            status = []
-            if res["is_expired"]: status.append("EXPIRED")
-            if res["is_stale"]: status.append("STALE")
-            status_str = f" [{', '.join(status)}]" if status else ""
-            print(f"  {res['agent']}: {res['paths'][:2]}{status_str} ({res['age_hours']}h)")
-    if not orphaned:
+    if orphaned:
+        for res in orphaned:
+            if res.get("is_corrupted"):
+                print(f"  [CORRUPTED] {res['file']}")
+            else:
+                status = []
+                if res["is_expired"]:
+                    status.append("EXPIRED")
+                if res["is_stale"]:
+                    status.append("STALE")
+                status_str = f" [{', '.join(status)}]" if status else ""
+                print(f"  {res['agent']}: {res['paths']}{status_str}")
+                print(f"    Age: {res['age_hours']}h | Reason: {res['reason']}")
+    else:
         print("  (none)")
     print()
 
+    # Stuck issues
     stuck = get_stuck_issues()
-    print(f"STUCK ISSUES (>24h in_progress): ({len(stuck)} total)")
-    for issue in stuck:
-        print(f"  {issue['id']}: {issue['title'][:40]} ({issue['age_hours']}h)")
-    if not stuck:
+    print(f"POTENTIALLY STUCK ISSUES: ({len(stuck)} total)")
+    if stuck:
+        for issue in stuck:
+            print(f"  {issue['id']}: {issue['title']} ({issue['age_hours']}h)")
+    else:
         print("  (none)")
     print()
 
 def reset_state():
+    """Reset local agent state."""
     if STATE_FILE.exists():
         os.remove(STATE_FILE)
         print("Local agent state reset.")
     else:
         print("No local state to reset.")
 
+def release_reservation(res_file):
+    """Remove a reservation file."""
+    try:
+        os.remove(res_file)
+        return True
+    except IOError as e:
+        print(f"Failed to remove {res_file}: {e}", file=sys.stderr)
+        return False
+
 def force_cleanup(stale_hours=4):
-    print("Force cleanup...")
+    """Force cleanup all stale/expired items."""
+    print("Force cleanup starting...")
+
+    # Reset local state
     reset_state()
+
+    # Remove stale/expired reservations
     orphaned = get_orphaned_reservations(stale_hours)
     removed = 0
     for res in orphaned:
         if res.get("is_corrupted") or res.get("is_expired") or res.get("is_stale"):
-            try:
-                os.remove(res["file"])
+            if release_reservation(res["file"]):
                 removed += 1
-            except:
-                pass
-    print(f"Removed {removed} reservations.")
+                print(f"  Removed: {res.get('agent', 'corrupted')} reservation")
+
+    print(f"Cleanup complete. Removed {removed} reservations.")
 
 def release_all():
-    print("WARNING: This releases ALL reservations!")
+    """Release ALL reservations (nuclear option)."""
+    print("WARNING: This will release ALL file reservations!")
     response = input("Are you sure? (yes/no): ")
     if response.lower() != "yes":
         print("Aborted.")
         return
+
     reservations_dir = MCP_STORAGE / "reservations"
     if reservations_dir.exists():
         removed = 0
         for res_file in reservations_dir.glob("*.json"):
-            try:
-                os.remove(res_file)
+            if release_reservation(res_file):
                 removed += 1
-            except:
-                pass
         print(f"Released {removed} reservations.")
+    else:
+        print("No reservations directory found.")
+
     reset_state()
 
-def interactive():
+def interactive_cleanup():
+    """Interactive cleanup mode."""
     list_items()
+
     print("-" * 60)
-    print("1. Reset local state  2. Cleanup stale  3. Release ALL  4. Exit")
-    choice = input("Select (1-4): ").strip()
-    if choice == "1": reset_state()
-    elif choice == "2": force_cleanup()
-    elif choice == "3": release_all()
+    print("OPTIONS:")
+    print("  1. Reset local agent state")
+    print("  2. Release expired/stale reservations")
+    print("  3. Release ALL reservations (nuclear)")
+    print("  4. Exit")
+    print()
+
+    choice = input("Select option (1-4): ").strip()
+
+    if choice == "1":
+        reset_state()
+    elif choice == "2":
+        force_cleanup()
+    elif choice == "3":
+        release_all()
+    elif choice == "4":
+        print("Exiting.")
+    else:
+        print("Invalid option.")
 
 def main():
-    parser = argparse.ArgumentParser(description="Multi-agent workflow cleanup")
-    parser.add_argument("--list", "-l", action="store_true")
-    parser.add_argument("--force", "-f", action="store_true")
-    parser.add_argument("--release-all", action="store_true")
-    parser.add_argument("--reset-state", action="store_true")
+    parser = argparse.ArgumentParser(description="Multi-agent workflow cleanup utility")
+    parser.add_argument("--list", "-l", action="store_true", help="List orphaned items")
+    parser.add_argument("--force", "-f", action="store_true", help="Force cleanup stale items")
+    parser.add_argument("--release-all", action="store_true", help="Release all reservations")
+    parser.add_argument("--reset-state", action="store_true", help="Reset local agent state")
+    parser.add_argument("--stale-hours", type=int, default=4, help="Hours before considered stale")
+
     args = parser.parse_args()
 
-    if args.list: list_items()
-    elif args.force: force_cleanup()
-    elif args.release_all: release_all()
-    elif args.reset_state: reset_state()
-    else: interactive()
+    if args.list:
+        list_items()
+    elif args.force:
+        force_cleanup(args.stale_hours)
+    elif args.release_all:
+        release_all()
+    elif args.reset_state:
+        reset_state()
+    else:
+        interactive_cleanup()
 
 if __name__ == "__main__":
     main()
