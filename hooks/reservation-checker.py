@@ -134,8 +134,8 @@ def main():
     if not file_path:
         sys.exit(0)
 
-    # Skip certain paths
-    skip_patterns = ["/.claude/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/"]
+    # Skip certain paths (including mcp_agent_mail so agents can manage their own reservations)
+    skip_patterns = ["/.claude/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/.mcp_agent_mail/"]
     for pattern in skip_patterns:
         if pattern in file_path:
             sys.exit(0)
