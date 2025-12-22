@@ -20,10 +20,11 @@ projects_base = "/home/ubuntu/projects"
 
 [agents]
 # Commands used to launch each agent type
-# AGENT_NAME is set to pane name for multi-agent coordination (reservation-checker.py uses this)
-claude = "AGENT_NAME={{shellQuote .PaneName}} NODE_OPTIONS=\"--max-old-space-size=32768\" ENABLE_BACKGROUND_TASKS=1 claude --dangerously-skip-permissions{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-prompt-file {{shellQuote .SystemPromptFile}}{{end}}"
-codex = "AGENT_NAME={{shellQuote .PaneName}} {{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT=\"$(cat {{shellQuote .SystemPromptFile}})\" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default \"gpt-4\")}} -c model_reasoning_effort=\"high\" -c model_reasoning_summary_format=experimental --enable web_search_request"
-gemini = "AGENT_NAME={{shellQuote .PaneName}} gemini{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-instruction-file {{shellQuote .SystemPromptFile}}{{end}} --yolo"
+# AGENT_NAME uses $TMUX_PANE (e.g., %1, %2) for unique multi-agent identity
+# Note: tmux display-message doesn't work reliably at spawn time
+claude = "AGENT_NAME=\"${TMUX_PANE:-cc_$$}\" NODE_OPTIONS=\"--max-old-space-size=32768\" ENABLE_BACKGROUND_TASKS=1 claude --dangerously-skip-permissions{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-prompt-file {{shellQuote .SystemPromptFile}}{{end}}"
+codex = "AGENT_NAME=\"${TMUX_PANE:-cod_$$}\" {{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT=\"$(cat {{shellQuote .SystemPromptFile}})\" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default \"gpt-4\")}} -c model_reasoning_effort=\"high\" -c model_reasoning_summary_format=experimental --enable web_search_request"
+gemini = "AGENT_NAME=\"${TMUX_PANE:-gmi_$$}\" gemini{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-instruction-file {{shellQuote .SystemPromptFile}}{{end}} --yolo"
 
 [tmux]
 # Tmux-specific settings
