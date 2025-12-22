@@ -3,11 +3,11 @@
 Session Initialization Hook (SessionStart)
 -------------------------------------------
 Handles cleanup and initialization at session start:
-- Clears stale agent state from previous sessions
+- Clears stale agent state from previous sessions (ONLY for this agent)
 - Checks for orphaned reservations
 - Injects workflow context
 
-This ensures clean state after crashes or interrupts.
+MULTI-AGENT SAFE: Uses AGENT_NAME env var to isolate state per agent.
 """
 
 import json
@@ -16,8 +16,19 @@ import os
 import time
 from pathlib import Path
 
-STATE_FILE = Path.home() / ".claude" / "agent-state.json"
+# Per-agent state files to avoid conflicts
+AGENT_NAME = os.environ.get("AGENT_NAME")
+STATE_DIR = Path.home() / ".claude"
 MCP_STORAGE = Path.home() / ".mcp_agent_mail"
+
+def get_state_file():
+    """Get the state file path for this agent."""
+    if AGENT_NAME:
+        # Multi-agent: per-agent state file
+        return STATE_DIR / f"state-{AGENT_NAME}.json"
+    else:
+        # Single-agent: legacy shared state file
+        return STATE_DIR / "agent-state.json"
 
 def check_orphaned_reservations():
     """Check for reservations from crashed sessions."""
@@ -57,12 +68,13 @@ def main():
         input_data = {}
 
     trigger = input_data.get("trigger", "startup")
+    state_file = get_state_file()
 
-    # Clear previous session state on fresh startup
+    # Clear THIS AGENT's state on fresh startup (not other agents')
     if trigger in ["startup", "clear"]:
-        if STATE_FILE.exists():
+        if state_file.exists():
             try:
-                os.remove(STATE_FILE)
+                os.remove(state_file)
             except IOError:
                 pass
 

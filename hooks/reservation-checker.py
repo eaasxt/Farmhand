@@ -17,20 +17,31 @@ import fnmatch
 import time
 from pathlib import Path
 
-STATE_FILE = Path.home() / ".claude" / "agent-state.json"
+# Per-agent state files to avoid conflicts
+AGENT_NAME = os.environ.get("AGENT_NAME")
+STATE_DIR = Path.home() / ".claude"
 MCP_STORAGE = Path.home() / ".mcp_agent_mail"
 
+def get_state_file():
+    """Get the state file path for this agent."""
+    if AGENT_NAME:
+        # Multi-agent: per-agent state file
+        return STATE_DIR / f"state-{AGENT_NAME}.json"
+    else:
+        # Single-agent: legacy shared state file
+        return STATE_DIR / "agent-state.json"
+
 def get_agent_name():
-    """Get agent name from environment (preferred) or state file (fallback)."""
+    """Get agent name from environment (preferred) or per-agent state file (fallback)."""
     # Preferred: environment variable
-    agent_name = os.environ.get("AGENT_NAME")
-    if agent_name:
-        return agent_name
-    
-    # Fallback: state file
-    if STATE_FILE.exists():
+    if AGENT_NAME:
+        return AGENT_NAME
+
+    # Fallback: per-agent state file
+    state_file = get_state_file()
+    if state_file.exists():
         try:
-            with open(STATE_FILE) as f:
+            with open(state_file) as f:
                 state = json.load(f)
                 return state.get("agent_name")
         except (json.JSONDecodeError, IOError):
@@ -39,12 +50,13 @@ def get_agent_name():
 
 def is_registered():
     """Check if agent is registered (env var set OR state file says so)."""
-    if os.environ.get("AGENT_NAME"):
+    if AGENT_NAME:
         return True
-    
-    if STATE_FILE.exists():
+
+    state_file = get_state_file()
+    if state_file.exists():
         try:
-            with open(STATE_FILE) as f:
+            with open(state_file) as f:
                 state = json.load(f)
                 return state.get("registered", False)
         except (json.JSONDecodeError, IOError):

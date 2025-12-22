@@ -7,38 +7,69 @@ Tracks agent state after MCP tool calls:
 - Tracks file reservations after file_reservation_paths
 - Clears reservations after release_file_reservations
 
-State is stored in ~/.claude/agent-state.json
+MULTI-AGENT SAFE: Uses per-agent state files based on AGENT_NAME env var.
+State is stored in ~/.claude/state-{AGENT_NAME}.json
 """
 
 import json
 import sys
 import os
 import time
+import fcntl
 from pathlib import Path
 
-STATE_FILE = Path.home() / ".claude" / "agent-state.json"
+# Per-agent state files to avoid conflicts
+AGENT_NAME = os.environ.get("AGENT_NAME")
+STATE_DIR = Path.home() / ".claude"
+
+def get_state_file():
+    """Get the state file path for this agent."""
+    if AGENT_NAME:
+        # Multi-agent: per-agent state file
+        return STATE_DIR / f"state-{AGENT_NAME}.json"
+    else:
+        # Single-agent: legacy shared state file
+        return STATE_DIR / "agent-state.json"
 
 def load_state():
-    """Load agent state from file."""
-    if STATE_FILE.exists():
+    """Load agent state from file with locking."""
+    state_file = get_state_file()
+    if state_file.exists():
         try:
-            with open(STATE_FILE) as f:
-                return json.load(f)
+            with open(state_file) as f:
+                fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                try:
+                    return json.load(f)
+                finally:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         except (json.JSONDecodeError, IOError):
             pass
     return {
         "registered": False,
-        "agent_name": None,
+        "agent_name": AGENT_NAME,  # Use env var if available
         "reservations": [],
         "issue_id": None,
         "session_start": time.time()
     }
 
 def save_state(state):
-    """Save agent state to file."""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
+    """Save agent state to file with atomic write and locking."""
+    state_file = get_state_file()
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Atomic write: write to temp file, then rename
+    temp_file = state_file.with_suffix('.tmp')
+    try:
+        with open(temp_file, "w") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+            try:
+                json.dump(state, f, indent=2)
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        temp_file.rename(state_file)  # Atomic rename
+    except IOError:
+        if temp_file.exists():
+            temp_file.unlink()
 
 def main():
     try:

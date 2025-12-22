@@ -19,9 +19,18 @@ import sys
 import time
 from pathlib import Path
 
-STATE_FILE = Path.home() / ".claude" / "agent-state.json"
+# Per-agent state files to avoid conflicts in multi-agent
+AGENT_NAME = os.environ.get("AGENT_NAME")
+STATE_DIR = Path.home() / ".claude"
 MCP_STORAGE = Path.home() / ".mcp_agent_mail"
 BEADS_DB = os.environ.get("BEADS_DB", str(Path.home() / ".beads" / "beads.db"))
+
+def get_state_file():
+    """Get the state file path for this agent."""
+    if AGENT_NAME:
+        return STATE_DIR / f"state-{AGENT_NAME}.json"
+    else:
+        return STATE_DIR / "agent-state.json"
 
 def get_orphaned_reservations(stale_hours=4):
     """Find reservations that may be orphaned."""
@@ -156,10 +165,12 @@ def list_items():
     print()
 
 def reset_state():
-    """Reset local agent state."""
-    if STATE_FILE.exists():
-        os.remove(STATE_FILE)
-        print("Local agent state reset.")
+    """Reset local agent state (only for this agent, not others)."""
+    state_file = get_state_file()
+    if state_file.exists():
+        os.remove(state_file)
+        agent_id = AGENT_NAME or "default"
+        print(f"Local agent state reset for {agent_id}.")
     else:
         print("No local state to reset.")
 
