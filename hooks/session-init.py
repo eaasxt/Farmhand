@@ -30,6 +30,22 @@ def get_state_file():
         # Single-agent: legacy shared state file
         return STATE_DIR / "agent-state.json"
 
+def parse_timestamp(value, default=0):
+    """Parse timestamp - handles both Unix float and ISO string formats."""
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            # Try ISO format: 2025-12-22T05:38:00Z
+            from datetime import datetime
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.timestamp()
+        except (ValueError, AttributeError):
+            return default
+    return default
+
 def check_orphaned_reservations():
     """Check for reservations from crashed sessions."""
     orphaned = []
@@ -45,18 +61,18 @@ def check_orphaned_reservations():
         try:
             with open(res_file) as f:
                 data = json.load(f)
-                created_at = data.get("created_at", 0)
-                expires_at = data.get("expires_at", 0)
+                created_at = parse_timestamp(data.get("created_at"), 0)
+                expires_at = parse_timestamp(data.get("expires_at"), 0)
 
                 # Check for stale but not expired reservations
-                if now - created_at > stale_threshold and expires_at > now:
+                if created_at > 0 and now - created_at > stale_threshold and expires_at > now:
                     orphaned.append({
                         "file": str(res_file),
                         "agent": data.get("agent_name", "unknown"),
                         "paths": data.get("paths", []),
                         "age_hours": round((now - created_at) / 3600, 1)
                     })
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, IOError, TypeError):
             continue
 
     return orphaned
