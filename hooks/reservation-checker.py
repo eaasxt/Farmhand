@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook
------------------------------
-Before allowing Edit/Write operations, verifies:
-1. Agent is registered with MCP Agent Mail
-2. Agent has reserved the file being edited
-3. Reservation is still valid (not expired)
+File Reservation Checker Hook (v3 - Uses AGENT_NAME env var)
+-------------------------------------------------------------
+Uses AGENT_NAME environment variable (the intended design from MCP Agent Mail).
+Falls back to ~/.claude/agent-state.json if env var not set.
 
-This prevents merge conflicts in multi-agent workflows.
-
-State is tracked in ~/.claude/agent-state.json
+Per MCP Agent Mail docs:
+"set AGENT_NAME in your environment so the pre-commit guard can block 
+commits that conflict with others' active exclusive file reservations."
 """
 
 import json
@@ -22,74 +20,101 @@ from pathlib import Path
 STATE_FILE = Path.home() / ".claude" / "agent-state.json"
 MCP_STORAGE = Path.home() / ".mcp_agent_mail"
 
-def load_state():
-    """Load agent state from file."""
+def get_agent_name():
+    """Get agent name from environment (preferred) or state file (fallback)."""
+    # Preferred: environment variable
+    agent_name = os.environ.get("AGENT_NAME")
+    if agent_name:
+        return agent_name
+    
+    # Fallback: state file
     if STATE_FILE.exists():
         try:
             with open(STATE_FILE) as f:
-                return json.load(f)
+                state = json.load(f)
+                return state.get("agent_name")
         except (json.JSONDecodeError, IOError):
             pass
-    return {"registered": False, "agent_name": None, "reservations": [], "issue_id": None}
+    return None
+
+def is_registered():
+    """Check if agent is registered (env var set OR state file says so)."""
+    if os.environ.get("AGENT_NAME"):
+        return True
+    
+    if STATE_FILE.exists():
+        try:
+            with open(STATE_FILE) as f:
+                state = json.load(f)
+                return state.get("registered", False)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return False
 
 def get_active_reservations():
-    """
-    Get active file reservations from MCP Agent Mail storage.
-    Returns list of {agent_name, paths, expires_at, reason}
-    """
+    """Get all active reservations from MCP storage."""
     reservations = []
     reservations_dir = MCP_STORAGE / "reservations"
-
+    
     if not reservations_dir.exists():
         return reservations
-
+    
     now = time.time()
-
+    
     for res_file in reservations_dir.glob("*.json"):
         try:
             with open(res_file) as f:
                 data = json.load(f)
-                # Check if reservation is still valid
-                expires_at = data.get("expires_at", 0)
-                if expires_at > now:
+                if data.get("expires_at", 0) > now:
                     reservations.append(data)
         except (json.JSONDecodeError, IOError):
             continue
-
+    
     return reservations
+
+def file_matches_pattern(file_path: str, pattern: str) -> bool:
+    """Check if file matches a glob pattern."""
+    if "**" in pattern:
+        base = pattern.split("**")[0].rstrip("/")
+        if file_path.startswith(base + "/") or file_path == base:
+            return True
+    
+    if fnmatch.fnmatch(file_path, pattern):
+        return True
+    
+    pattern_dir = pattern.rstrip("/*")
+    if file_path.startswith(pattern_dir + "/"):
+        return True
+    
+    return False
 
 def check_file_reserved(file_path: str, agent_name: str, reservations: list) -> tuple:
     """
     Check if file is reserved by the given agent.
-    Returns (is_reserved_by_agent, blocking_agent)
+    Returns (is_reserved_by_agent, blocking_agent_or_none)
     """
     file_path = os.path.abspath(file_path)
-
+    
     for res in reservations:
-        paths = res.get("paths", [])
         res_agent = res.get("agent_name", "")
-
-        for pattern in paths:
-            # Handle glob patterns
-            if fnmatch.fnmatch(file_path, pattern) or file_path.startswith(pattern.rstrip("*")):
-                if res_agent == agent_name:
-                    return (True, None)
+        for pattern in res.get("paths", []):
+            if file_matches_pattern(file_path, pattern):
+                if res_agent.lower() == agent_name.lower():
+                    return (True, None)  # Reserved by this agent
                 else:
-                    return (False, res_agent)
-
-    return (False, None)
+                    return (False, res_agent)  # Reserved by another agent
+    
+    return (False, None)  # Not reserved by anyone
 
 def main():
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError as e:
-        print(f"Invalid JSON input: {e}", file=sys.stderr)
+    except json.JSONDecodeError:
         sys.exit(1)
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
 
-    # Only check Edit and Write operations
     if tool_name not in ["Edit", "Write"]:
         sys.exit(0)
 
@@ -97,60 +122,36 @@ def main():
     if not file_path:
         sys.exit(0)
 
-    # Skip checks for certain paths (hooks, temp files, etc.)
-    skip_patterns = [
-        "/.claude/",
-        "/tmp/",
-        ".pyc",
-        "__pycache__",
-        ".git/",
-        "node_modules/",
-    ]
-
+    # Skip certain paths
+    skip_patterns = ["/.claude/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/"]
     for pattern in skip_patterns:
         if pattern in file_path:
             sys.exit(0)
 
-    state = load_state()
-
-    # Check 1: Is agent registered?
-    if not state.get("registered"):
+    # Check registration
+    if not is_registered():
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
                 "permissionDecisionReason": """BLOCKED: Agent not registered.
 
-Before editing files, you must:
+Set AGENT_NAME environment variable, or call register_agent() first.
 
-1. Register with MCP Agent Mail:
-   register_agent(
-       project_key="/home/ubuntu",
-       program="claude-code",
-       model="opus-4.5"
-   )
+Option 1 (preferred): Set env var before launching agent:
+  export AGENT_NAME="YourAgentName"
+  claude
 
-2. Note your assigned name from the response (e.g., "BlueLake")
+Option 2: Register via MCP:
+  register_agent(project_key="/home/ubuntu", program="claude-code", model="opus-4.5")
 
-3. Reserve files before editing:
-   file_reservation_paths(
-       project_key="/home/ubuntu",
-       agent_name="<your-assigned-name>",
-       paths=["path/to/file.py"],
-       ttl_seconds=3600,
-       exclusive=True,
-       reason="<issue-id>"
-   )
-
-See ~/CLAUDE.md for the complete workflow."""
+See ~/CLAUDE.md for details."""
             }
         }
         print(json.dumps(output))
         sys.exit(0)
 
-    agent_name = state.get("agent_name")
-
-    # Check 2: Does agent have this file reserved?
+    agent_name = get_agent_name()
     reservations = get_active_reservations()
     is_reserved, blocking_agent = check_file_reserved(file_path, agent_name, reservations)
 
@@ -165,18 +166,7 @@ File: {file_path}
 Reserved by: {blocking_agent}
 Your agent: {agent_name}
 
-Options:
-1. Wait for {blocking_agent} to release the file
-2. Send a message to coordinate:
-   send_message(
-       project_key="/home/ubuntu",
-       sender_name="{agent_name}",
-       to=["{blocking_agent}"],
-       subject="File access request",
-       body_md="Need access to {file_path}..."
-   )
-3. Check your inbox for updates:
-   fetch_inbox(project_key="/home/ubuntu", agent_name="{agent_name}")"""
+Wait for {blocking_agent} to release, or coordinate via Agent Mail."""
             }
         }
         print(json.dumps(output))
@@ -192,21 +182,15 @@ Options:
 File: {file_path}
 Agent: {agent_name}
 
-You must reserve files before editing:
-
+Reserve before editing:
 file_reservation_paths(
     project_key="/home/ubuntu",
     agent_name="{agent_name}",
     paths=["{file_path}"],
     ttl_seconds=3600,
     exclusive=True,
-    reason="<issue-id>"  # e.g., "ubuntu-42"
-)
-
-Or use a glob pattern:
-    paths=["src/**/*.py"]
-
-See ~/CLAUDE.md for the complete workflow."""
+    reason="<issue-id>"
+)"""
             }
         }
         print(json.dumps(output))

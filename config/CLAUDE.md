@@ -66,7 +66,19 @@ bd ready
 bd update <id> --status=in_progress
 ```
 
-### Phase 2: Register (REQUIRED before editing)
+### Phase 2: Agent Identity (REQUIRED before editing)
+
+**Option A: AGENT_NAME Environment Variable (Preferred for multi-agent)**
+
+When using `ntm spawn`, each agent pane automatically gets `AGENT_NAME` set to its pane name (e.g., `myproject__cc_1`). This is the intended design from MCP Agent Mail and avoids conflicts when multiple agents share `~/.claude/agent-state.json`.
+
+```bash
+# Set manually if not using ntm:
+export AGENT_NAME="MyAgentName"
+claude
+```
+
+**Option B: register_agent() MCP Call (Single agent)**
 
 ```python
 # This MUST happen before any Edit/Write operations
