@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verify JohnDeere v2.0.0 installation
+# Verify JohnDeere v2.1.0 installation
 
 echo "=========================================="
-echo "  JohnDeere v2.0.0 Installation Verify"
+echo "  JohnDeere v2.1.0 Installation Verify"
 echo "=========================================="
 echo ""
 
@@ -109,6 +109,57 @@ check "session-init" "test -x ~/.claude/hooks/session-init.py"
 check "bd-cleanup" "test -x ~/.local/bin/bd-cleanup"
 
 echo ""
+echo "==> Knowledge & Vibes Workflow..."
+# Check skills directory has content
+printf "%-35s" "Skills (18 expected)"
+SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
+if [[ "$SKILLS_COUNT" -ge 15 ]]; then
+    echo "[OK] ($SKILLS_COUNT installed)"
+    ((PASS++))
+else
+    echo "[INCOMPLETE] ($SKILLS_COUNT installed)"
+    ((FAIL++))
+fi
+
+# Check commands
+printf "%-35s" "Commands (7 expected)"
+CMDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
+if [[ "$CMDS_COUNT" -ge 5 ]]; then
+    echo "[OK] ($CMDS_COUNT installed)"
+    ((PASS++))
+else
+    echo "[INCOMPLETE] ($CMDS_COUNT installed)"
+    ((FAIL++))
+fi
+
+# Check rules
+printf "%-35s" "Rules (3 expected)"
+RULES_COUNT=$(ls ~/.claude/rules/ 2>/dev/null | wc -l)
+if [[ "$RULES_COUNT" -ge 3 ]]; then
+    echo "[OK] ($RULES_COUNT installed)"
+    ((PASS++))
+else
+    echo "[INCOMPLETE] ($RULES_COUNT installed)"
+    ((FAIL++))
+fi
+
+# Check templates
+printf "%-35s" "Templates (8 expected)"
+TEMPLATES_COUNT=$(ls ~/templates/ 2>/dev/null | wc -l)
+if [[ "$TEMPLATES_COUNT" -ge 5 ]]; then
+    echo "[OK] ($TEMPLATES_COUNT installed)"
+    ((PASS++))
+else
+    echo "[INCOMPLETE] ($TEMPLATES_COUNT installed)"
+    ((FAIL++))
+fi
+
+# Check key commands exist
+check "/prime command" "test -f ~/.claude/commands/prime.md"
+check "/calibrate command" "test -f ~/.claude/commands/calibrate.md"
+check "/next-bead command" "test -f ~/.claude/commands/next-bead.md"
+
+echo ""
 echo "==> API Connectivity..."
 check "Ollama API" "curl -s http://localhost:11434/api/version"
 
@@ -157,10 +208,11 @@ if [[ $FAIL -gt 0 ]]; then
     echo ""
     echo "Some checks failed. Review the output above."
     echo "Run individual install scripts to fix:"
-    echo "  ./scripts/install/03-stack-tools.sh   # Stack tools"
-    echo "  ./scripts/install/04-cloud-clis.sh    # Cloud CLIs"
-    echo "  ./scripts/install/05-ai-agents.sh     # AI agents"
-    echo "  ./scripts/install/08-shell-config.sh  # Shell config"
+    echo "  ./scripts/install/03-stack-tools.sh      # Stack tools"
+    echo "  ./scripts/install/04-cloud-clis.sh       # Cloud CLIs"
+    echo "  ./scripts/install/05-ai-agents.sh        # AI agents"
+    echo "  ./scripts/install/08-shell-config.sh     # Shell config"
+    echo "  ./scripts/install/10-knowledge-vibes.sh  # K&V workflow"
     exit 1
 else
     echo ""
@@ -170,5 +222,10 @@ else
     echo "  1. exec zsh              # Switch to new shell"
     echo "  2. bd ready              # See available work"
     echo "  3. ntm palette           # Command palette"
+    echo ""
+    echo "Slash commands (in Claude):"
+    echo "  /prime      # Start session, register, claim work"
+    echo "  /calibrate  # Check alignment between phases"
+    echo "  /next-bead  # Close task, UBS scan, claim next"
     echo ""
 fi
