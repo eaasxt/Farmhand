@@ -36,6 +36,7 @@ bd stats        # Project health check
 | No TodoWrite | PreToolUse hook blocks & suggests bd | `todowrite-interceptor.py` |
 | Must register before editing | PreToolUse hook checks state | `reservation-checker.py` |
 | Must reserve files before editing | PreToolUse hook checks reservations | `reservation-checker.py` |
+| No destructive git commands | PreToolUse hook blocks dangerous git ops | `git_safety_guard.py` |
 | State tracking | PostToolUse hook tracks MCP calls | `mcp-state-tracker.py` |
 | Session cleanup | SessionStart hook clears stale state | `session-init.py` |
 
@@ -48,7 +49,8 @@ bd stats        # Project health check
 │   ├── todowrite-interceptor.py    # Blocks TodoWrite, suggests bd
 │   ├── reservation-checker.py      # Enforces file reservations
 │   ├── mcp-state-tracker.py        # Tracks agent state
-│   └── session-init.py             # Session startup cleanup
+│   ├── session-init.py             # Session startup cleanup
+│   └── git_safety_guard.py         # Blocks destructive git commands
 └── agent-state.json           # Current agent state (auto-managed)
 ```
 
