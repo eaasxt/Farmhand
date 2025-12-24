@@ -1,67 +1,80 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook (v4 - Queries MCP Agent Mail SQLite database)
----------------------------------------------------------------------------
+File Reservation Checker Hook (v5 - Prioritizes registered name from state file)
+---------------------------------------------------------------------------------
 Queries the MCP Agent Mail SQLite database directly for file reservations.
-Uses AGENT_NAME environment variable or falls back to agent-state.json.
 
-Per MCP Agent Mail docs:
-"set AGENT_NAME in your environment so the pre-commit guard can block
-commits that conflict with others' active exclusive file reservations."
+Agent name resolution (in order):
+1. agent-state.json (set by mcp-state-tracker when registering via MCP)
+2. AGENT_NAME env var (for multi-agent ntm scenarios, must be valid)
+3. None (not registered)
+
+This ensures the MCP-assigned name (e.g., "GreenSnow") is used, not garbage
+env vars like "%17".
 """
 
 import json
 import sys
 import os
 import fnmatch
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Per-agent state files to avoid conflicts
-AGENT_NAME = os.environ.get("AGENT_NAME")
+# Configuration
+AGENT_NAME_ENV = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
 MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
 
-def get_state_file():
-    """Get the state file path for this agent."""
-    if AGENT_NAME:
-        # Multi-agent: per-agent state file
-        return STATE_DIR / f"state-{AGENT_NAME}.json"
-    else:
-        # Single-agent: legacy shared state file
-        return STATE_DIR / "agent-state.json"
+# Valid agent name pattern: alphanumeric, may contain underscores/hyphens
+VALID_AGENT_NAME_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9_-]*$')
 
-def get_agent_name():
-    """Get agent name from environment (preferred) or per-agent state file (fallback)."""
-    # Preferred: environment variable
-    if AGENT_NAME:
-        return AGENT_NAME
+def is_valid_agent_name(name):
+    """Check if agent name looks valid (not URL-encoded garbage)."""
+    if not name:
+        return False
+    return bool(VALID_AGENT_NAME_PATTERN.match(name))
 
-    # Fallback: per-agent state file
-    state_file = get_state_file()
+def get_state_from_file():
+    """Get agent state from agent-state.json."""
+    state_file = STATE_DIR / "agent-state.json"
     if state_file.exists():
         try:
             with open(state_file) as f:
-                state = json.load(f)
-                return state.get("agent_name")
+                return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
+    return {}
+
+def get_agent_name():
+    """
+    Get agent name with proper priority:
+    1. Registered name from agent-state.json (set by MCP registration)
+    2. Valid AGENT_NAME env var (for multi-agent scenarios)
+    """
+    # Priority 1: Check agent-state.json for registered name
+    state = get_state_from_file()
+    if state.get("registered") and state.get("agent_name"):
+        return state["agent_name"]
+
+    # Priority 2: Valid AGENT_NAME env var (multi-agent scenario)
+    if AGENT_NAME_ENV and is_valid_agent_name(AGENT_NAME_ENV):
+        return AGENT_NAME_ENV
+
     return None
 
 def is_registered():
-    """Check if agent is registered (env var set OR state file says so)."""
-    if AGENT_NAME:
+    """Check if agent is registered."""
+    # Check agent-state.json first
+    state = get_state_from_file()
+    if state.get("registered"):
         return True
 
-    state_file = get_state_file()
-    if state_file.exists():
-        try:
-            with open(state_file) as f:
-                state = json.load(f)
-                return state.get("registered", False)
-        except (json.JSONDecodeError, IOError):
-            pass
+    # Check if valid AGENT_NAME is set (multi-agent scenario)
+    if AGENT_NAME_ENV and is_valid_agent_name(AGENT_NAME_ENV):
+        return True
+
     return False
 
 def get_active_reservations():
