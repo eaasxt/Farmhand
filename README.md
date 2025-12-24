@@ -106,7 +106,7 @@ See [docs/upgrade-from-v1.md](docs/upgrade-from-v1.md) for details.
 
 ```
 JohnDeere/
-├── VERSION                     # Current version (2.0.0)
+├── VERSION                     # Current version (2.1.0)
 ├── install.sh                  # Master idempotent installer
 ├── upgrade.sh                  # Upgrade existing installs
 │
@@ -119,10 +119,12 @@ JohnDeere/
 │   └── systemd/                # Service files
 │
 ├── hooks/
+│   ├── README.md                 # Hook documentation
 │   ├── todowrite-interceptor.py  # Blocks TodoWrite
 │   ├── reservation-checker.py    # Enforces file reservations
 │   ├── mcp-state-tracker.py      # Tracks agent state
 │   ├── session-init.py           # Session startup
+│   ├── git_safety_guard.py       # Blocks destructive git commands
 │   └── on-file-write.sh          # UBS integration
 │
 ├── bin/
@@ -139,16 +141,24 @@ JohnDeere/
 │   │   ├── 06-ollama.sh        # Ollama + models
 │   │   ├── 07-mcp-agent-mail.sh
 │   │   ├── 08-shell-config.sh  # zsh, oh-my-zsh, p10k
-│   │   └── 09-hooks.sh         # Enforcement hooks
+│   │   ├── 09-hooks.sh         # Enforcement hooks
+│   │   └── 10-knowledge-vibes.sh # Workflow framework
 │   └── verify.sh               # Post-install verification
 │
+├── vendor/
+│   └── knowledge_and_vibes/    # Workflow framework (git submodule)
+│
 └── docs/
-    ├── quickstart.md
-    ├── troubleshooting.md
-    └── upgrade-from-v1.md
+    ├── quickstart.md           # 5-minute getting started
+    ├── architecture.md         # System overview
+    ├── hooks.md                # Hook system documentation
+    ├── troubleshooting.md      # Common issues
+    └── upgrade-from-v1.md      # Migration guide
 ```
 
 ## Post-Install
+
+See [docs/quickstart.md](docs/quickstart.md) for a complete getting-started guide.
 
 ```bash
 # Switch to new shell
@@ -198,7 +208,10 @@ Hooks enforce the multi-agent workflow:
 | `reservation-checker.py` | Blocks Edit/Write without file reservation |
 | `mcp-state-tracker.py` | Tracks agent state |
 | `session-init.py` | Cleans stale state on session start |
+| `git_safety_guard.py` | Blocks destructive git commands |
 | `on-file-write.sh` | Runs UBS on written files |
+
+See [docs/hooks.md](docs/hooks.md) for detailed hook documentation.
 
 ## Requirements
 
