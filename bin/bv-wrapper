@@ -1,0 +1,3 @@
+#!/bin/bash
+# bv wrapper - runs bv from the beads root directory
+cd /home/ubuntu && exec bv "$@"
