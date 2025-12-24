@@ -71,9 +71,13 @@ def get_orphaned_reservations(stale_hours=4):
                 created_str = row["created_ts"]
                 expires_str = row["expires_ts"]
 
-                # Parse timestamps
+                # Parse timestamps (database stores as naive UTC, make them aware)
                 created = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
                 expires = datetime.fromisoformat(expires_str.replace('Z', '+00:00'))
+                if expires.tzinfo is None:
+                    expires = expires.replace(tzinfo=timezone.utc)
 
                 age_hours = (now - created).total_seconds() / 3600
                 is_expired = expires < now
