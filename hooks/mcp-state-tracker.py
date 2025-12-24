@@ -74,7 +74,7 @@ def save_state(state):
 def main():
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         sys.exit(0)  # Non-blocking on parse errors
 
     tool_name = input_data.get("tool_name", "")

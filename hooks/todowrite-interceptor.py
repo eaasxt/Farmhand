@@ -12,7 +12,6 @@ Exit codes:
 
 import json
 import sys
-import os
 
 def main():
     try:
@@ -36,9 +35,9 @@ def main():
             if status == "pending":
                 bd_commands.append(f'bd create --title="{content}" --type=task')
             elif status == "in_progress":
-                bd_commands.append(f'# For in_progress: bd update <id> --status=in_progress')
+                bd_commands.append('# For in_progress: bd update <id> --status=in_progress')
             elif status == "completed":
-                bd_commands.append(f'# For completed: bd close <id> --reason="{content}"')
+                bd_commands.append('# For completed: bd close <id> --reason="{content}"')
 
         suggestion = "\n".join(bd_commands) if bd_commands else "bd create --title=\"...\" --type=task"
 

@@ -130,7 +130,7 @@ def get_stuck_issues():
                     try:
                         dt = datetime.fromisoformat(updated.replace("Z", "+00:00"))
                         updated = dt.timestamp()
-                    except:
+                    except (ValueError, AttributeError):
                         updated = 0
 
                 age_hours = (now - updated) / 3600 if updated else 0
@@ -163,7 +163,7 @@ def list_items():
                 print(f"  Agent Name: {state.get('agent_name', 'None')}")
                 print(f"  Issue ID: {state.get('issue_id', 'None')}")
                 print(f"  Reservations: {len(state.get('reservations', []))}")
-        except:
+        except (json.JSONDecodeError, IOError):
             print("  (corrupted)")
     else:
         print("  (none)")
