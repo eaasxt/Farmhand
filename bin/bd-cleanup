@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-bd-cleanup - Multi-Agent Workflow Cleanup Utility
--------------------------------------------------
+bd-cleanup - Multi-Agent Workflow Cleanup Utility (v2 - SQLite)
+---------------------------------------------------------------
 Handles recovery from crashes, interrupts, and orphaned state.
+Queries MCP Agent Mail SQLite database directly for reservations.
 
 Usage:
   bd-cleanup                    # Interactive cleanup
@@ -17,12 +18,14 @@ import json
 import os
 import sys
 import time
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Per-agent state files to avoid conflicts in multi-agent
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
-MCP_STORAGE = Path.home() / ".mcp_agent_mail"
+MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
 BEADS_DB = os.environ.get("BEADS_DB", str(Path.home() / ".beads" / "beads.db"))
 
 def get_state_file():
@@ -33,43 +36,71 @@ def get_state_file():
         return STATE_DIR / "agent-state.json"
 
 def get_orphaned_reservations(stale_hours=4):
-    """Find reservations that may be orphaned."""
+    """Find reservations that may be orphaned from SQLite database."""
     orphaned = []
-    reservations_dir = MCP_STORAGE / "reservations"
 
-    if not reservations_dir.exists():
+    if not MCP_DB_PATH.exists():
         return orphaned
 
-    now = time.time()
-    stale_threshold = stale_hours * 3600
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    for res_file in reservations_dir.glob("*.json"):
-        try:
-            with open(res_file) as f:
-                data = json.load(f)
-                created_at = data.get("created_at", 0)
-                expires_at = data.get("expires_at", 0)
+        now = datetime.now(timezone.utc)
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-                age_hours = (now - created_at) / 3600 if created_at else 0
-                is_expired = expires_at < now
+        # Get all non-released reservations
+        cursor.execute("""
+            SELECT
+                fr.id,
+                fr.path_pattern,
+                fr.reason,
+                fr.created_ts,
+                fr.expires_ts,
+                fr.released_ts,
+                a.name as agent_name
+            FROM file_reservations fr
+            JOIN agents a ON fr.agent_id = a.id
+            WHERE fr.released_ts IS NULL
+            ORDER BY fr.created_ts DESC
+        """)
+
+        for row in cursor.fetchall():
+            try:
+                created_str = row["created_ts"]
+                expires_str = row["expires_ts"]
+
+                # Parse timestamps
+                created = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                expires = datetime.fromisoformat(expires_str.replace('Z', '+00:00'))
+
+                age_hours = (now - created).total_seconds() / 3600
+                is_expired = expires < now
                 is_stale = age_hours > stale_hours
 
                 orphaned.append({
-                    "file": res_file,
-                    "agent": data.get("agent_name", "unknown"),
-                    "paths": data.get("paths", []),
-                    "reason": data.get("reason", ""),
+                    "id": row["id"],
+                    "agent": row["agent_name"],
+                    "paths": [row["path_pattern"]],
+                    "reason": row["reason"] or "",
                     "age_hours": round(age_hours, 1),
                     "is_expired": is_expired,
                     "is_stale": is_stale,
-                    "expires_at": expires_at,
+                    "expires_ts": expires_str,
                 })
-        except (json.JSONDecodeError, IOError) as e:
-            orphaned.append({
-                "file": res_file,
-                "error": str(e),
-                "is_corrupted": True
-            })
+            except (ValueError, AttributeError) as e:
+                orphaned.append({
+                    "id": row["id"],
+                    "agent": row["agent_name"],
+                    "paths": [row["path_pattern"]],
+                    "error": str(e),
+                    "is_corrupted": True
+                })
+
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"Warning: Could not read database: {e}", file=sys.stderr)
 
     return orphaned
 
@@ -92,7 +123,6 @@ def get_stuck_issues():
                 updated = issue.get("updated_at", 0)
                 if isinstance(updated, str):
                     # Parse ISO timestamp
-                    from datetime import datetime
                     try:
                         dt = datetime.fromisoformat(updated.replace("Z", "+00:00"))
                         updated = dt.timestamp()
@@ -114,7 +144,7 @@ def get_stuck_issues():
 def list_items():
     """List all orphaned/stuck items."""
     print("=" * 60)
-    print("MULTI-AGENT WORKFLOW CLEANUP")
+    print("MULTI-AGENT WORKFLOW CLEANUP (v2 - SQLite)")
     print("=" * 60)
     print()
 
@@ -135,22 +165,22 @@ def list_items():
         print("  (none)")
     print()
 
-    # Reservations
+    # Reservations from SQLite
     orphaned = get_orphaned_reservations()
-    print(f"FILE RESERVATIONS: ({len(orphaned)} total)")
+    print(f"FILE RESERVATIONS (from SQLite): ({len(orphaned)} active)")
     if orphaned:
         for res in orphaned:
             if res.get("is_corrupted"):
-                print(f"  [CORRUPTED] {res['file']}")
+                print(f"  [CORRUPTED] ID {res['id']}: {res.get('agent', 'unknown')}")
             else:
                 status = []
-                if res["is_expired"]:
+                if res.get("is_expired"):
                     status.append("EXPIRED")
-                if res["is_stale"]:
+                if res.get("is_stale"):
                     status.append("STALE")
                 status_str = f" [{', '.join(status)}]" if status else ""
                 print(f"  {res['agent']}: {res['paths']}{status_str}")
-                print(f"    Age: {res['age_hours']}h | Reason: {res['reason']}")
+                print(f"    ID: {res['id']} | Age: {res['age_hours']}h | Reason: {res['reason']}")
     else:
         print("  (none)")
     print()
@@ -175,13 +205,21 @@ def reset_state():
     else:
         print("No local state to reset.")
 
-def release_reservation(res_file):
-    """Remove a reservation file."""
+def release_reservation_by_id(res_id):
+    """Mark a reservation as released in the SQLite database."""
     try:
-        os.remove(res_file)
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        cursor = conn.cursor()
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        cursor.execute(
+            "UPDATE file_reservations SET released_ts = ? WHERE id = ?",
+            (now_str, res_id)
+        )
+        conn.commit()
+        conn.close()
         return True
-    except IOError as e:
-        print(f"Failed to remove {res_file}: {e}", file=sys.stderr)
+    except sqlite3.Error as e:
+        print(f"Failed to release reservation {res_id}: {e}", file=sys.stderr)
         return False
 
 def force_cleanup(stale_hours=4):
@@ -191,16 +229,16 @@ def force_cleanup(stale_hours=4):
     # Reset local state
     reset_state()
 
-    # Remove stale/expired reservations
+    # Release stale/expired reservations in database
     orphaned = get_orphaned_reservations(stale_hours)
-    removed = 0
+    released = 0
     for res in orphaned:
         if res.get("is_corrupted") or res.get("is_expired") or res.get("is_stale"):
-            if release_reservation(res["file"]):
-                removed += 1
-                print(f"  Removed: {res.get('agent', 'corrupted')} reservation")
+            if release_reservation_by_id(res["id"]):
+                released += 1
+                print(f"  Released: {res.get('agent', 'corrupted')} reservation (ID {res['id']})")
 
-    print(f"Cleanup complete. Removed {removed} reservations.")
+    print(f"Cleanup complete. Released {released} reservations.")
 
 def release_all():
     """Release ALL reservations (nuclear option)."""
@@ -210,16 +248,13 @@ def release_all():
         print("Aborted.")
         return
 
-    reservations_dir = MCP_STORAGE / "reservations"
-    if reservations_dir.exists():
-        removed = 0
-        for res_file in reservations_dir.glob("*.json"):
-            if release_reservation(res_file):
-                removed += 1
-        print(f"Released {removed} reservations.")
-    else:
-        print("No reservations directory found.")
+    orphaned = get_orphaned_reservations(stale_hours=0)
+    released = 0
+    for res in orphaned:
+        if release_reservation_by_id(res["id"]):
+            released += 1
 
+    print(f"Released {released} reservations.")
     reset_state()
 
 def interactive_cleanup():

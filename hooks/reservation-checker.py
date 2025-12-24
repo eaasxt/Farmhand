@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook (v3 - Uses AGENT_NAME env var)
--------------------------------------------------------------
-Uses AGENT_NAME environment variable (the intended design from MCP Agent Mail).
-Falls back to ~/.claude/agent-state.json if env var not set.
+File Reservation Checker Hook (v4 - Queries MCP Agent Mail SQLite database)
+---------------------------------------------------------------------------
+Queries the MCP Agent Mail SQLite database directly for file reservations.
+Uses AGENT_NAME environment variable or falls back to agent-state.json.
 
 Per MCP Agent Mail docs:
-"set AGENT_NAME in your environment so the pre-commit guard can block 
+"set AGENT_NAME in your environment so the pre-commit guard can block
 commits that conflict with others' active exclusive file reservations."
 """
 
@@ -14,13 +14,14 @@ import json
 import sys
 import os
 import fnmatch
-import time
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
-MCP_STORAGE = Path.home() / ".mcp_agent_mail"
+MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
 
 def get_state_file():
     """Get the state file path for this agent."""
@@ -64,24 +65,49 @@ def is_registered():
     return False
 
 def get_active_reservations():
-    """Get all active reservations from MCP storage."""
+    """Get all active reservations from MCP Agent Mail SQLite database."""
     reservations = []
-    reservations_dir = MCP_STORAGE / "reservations"
-    
-    if not reservations_dir.exists():
+
+    if not MCP_DB_PATH.exists():
         return reservations
-    
-    now = time.time()
-    
-    for res_file in reservations_dir.glob("*.json"):
-        try:
-            with open(res_file) as f:
-                data = json.load(f)
-                if data.get("expires_at", 0) > now:
-                    reservations.append(data)
-        except (json.JSONDecodeError, IOError):
-            continue
-    
+
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Get active (non-released, non-expired) reservations
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+            SELECT
+                fr.path_pattern,
+                fr.exclusive,
+                fr.reason,
+                fr.expires_ts,
+                a.name as agent_name,
+                p.human_key as project_key
+            FROM file_reservations fr
+            JOIN agents a ON fr.agent_id = a.id
+            JOIN projects p ON fr.project_id = p.id
+            WHERE fr.released_ts IS NULL
+              AND fr.expires_ts > ?
+        """, (now,))
+
+        for row in cursor.fetchall():
+            reservations.append({
+                "agent_name": row["agent_name"],
+                "paths": [row["path_pattern"]],
+                "exclusive": bool(row["exclusive"]),
+                "reason": row["reason"],
+                "project_key": row["project_key"],
+                "expires_ts": row["expires_ts"]
+            })
+
+        conn.close()
+    except sqlite3.Error:
+        # If database is locked or inaccessible, fail open (allow edits)
+        pass
+
     return reservations
 
 def file_matches_pattern(file_path: str, pattern: str) -> bool:
@@ -135,7 +161,7 @@ def main():
         sys.exit(0)
 
     # Skip certain paths (including mcp_agent_mail so agents can manage their own reservations)
-    skip_patterns = ["/.claude/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/.mcp_agent_mail/"]
+    skip_patterns = ["/.claude/", "/.local/bin/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/.mcp_agent_mail/"]
     for pattern in skip_patterns:
         if pattern in file_path:
             sys.exit(0)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Session Initialization Hook (SessionStart)
--------------------------------------------
+Session Initialization Hook (SessionStart) - v2
+------------------------------------------------
 Handles cleanup and initialization at session start:
 - Clears stale agent state from previous sessions (ONLY for this agent)
-- Checks for orphaned reservations
+- Checks for orphaned reservations in SQLite database
 - Injects workflow context
 
 MULTI-AGENT SAFE: Uses AGENT_NAME env var to isolate state per agent.
@@ -14,12 +14,14 @@ import json
 import sys
 import os
 import time
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
-MCP_STORAGE = Path.home() / ".mcp_agent_mail"
+MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
 
 def get_state_file():
     """Get the state file path for this agent."""
@@ -30,50 +32,53 @@ def get_state_file():
         # Single-agent: legacy shared state file
         return STATE_DIR / "agent-state.json"
 
-def parse_timestamp(value, default=0):
-    """Parse timestamp - handles both Unix float and ISO string formats."""
-    if value is None:
-        return default
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            # Try ISO format: 2025-12-22T05:38:00Z
-            from datetime import datetime
-            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
-            return dt.timestamp()
-        except (ValueError, AttributeError):
-            return default
-    return default
-
 def check_orphaned_reservations():
-    """Check for reservations from crashed sessions."""
+    """Check for stale reservations from crashed sessions in SQLite database."""
     orphaned = []
-    reservations_dir = MCP_STORAGE / "reservations"
 
-    if not reservations_dir.exists():
+    if not MCP_DB_PATH.exists():
         return orphaned
 
-    now = time.time()
-    stale_threshold = 4 * 3600  # 4 hours
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    for res_file in reservations_dir.glob("*.json"):
-        try:
-            with open(res_file) as f:
-                data = json.load(f)
-                created_at = parse_timestamp(data.get("created_at"), 0)
-                expires_at = parse_timestamp(data.get("expires_at"), 0)
+        # Find reservations that are old (> 4 hours) but not released and not expired
+        stale_threshold_hours = 4
+        now = datetime.now(timezone.utc)
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-                # Check for stale but not expired reservations
-                if created_at > 0 and now - created_at > stale_threshold and expires_at > now:
-                    orphaned.append({
-                        "file": str(res_file),
-                        "agent": data.get("agent_name", "unknown"),
-                        "paths": data.get("paths", []),
-                        "age_hours": round((now - created_at) / 3600, 1)
-                    })
-        except (json.JSONDecodeError, IOError, TypeError):
-            continue
+        cursor.execute("""
+            SELECT
+                fr.path_pattern,
+                fr.created_ts,
+                fr.expires_ts,
+                a.name as agent_name
+            FROM file_reservations fr
+            JOIN agents a ON fr.agent_id = a.id
+            WHERE fr.released_ts IS NULL
+              AND fr.expires_ts > ?
+              AND datetime(fr.created_ts, '+' || ? || ' hours') < ?
+        """, (now_str, stale_threshold_hours, now_str))
+
+        for row in cursor.fetchall():
+            # Calculate age
+            try:
+                created = datetime.fromisoformat(row["created_ts"].replace('Z', '+00:00'))
+                age_hours = (now - created).total_seconds() / 3600
+            except (ValueError, AttributeError):
+                age_hours = stale_threshold_hours + 1
+
+            orphaned.append({
+                "agent": row["agent_name"],
+                "paths": [row["path_pattern"]],
+                "age_hours": round(age_hours, 1)
+            })
+
+        conn.close()
+    except sqlite3.Error:
+        pass
 
     return orphaned
 
