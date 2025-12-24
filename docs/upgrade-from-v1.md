@@ -76,7 +76,7 @@ git pull origin main
 
 - **Beads database** (`~/.beads/beads.db`) - Your issues and history
 - **Agent state** (`~/.claude/agent-state.json`) - Current registration
-- **MCP Agent Mail data** (`~/.mcp_agent_mail/`) - Messages and reservations
+- **MCP Agent Mail data** (`~/mcp_agent_mail/storage.sqlite3`) - SQLite database
 - **Git configurations** - Your SSH keys and git config
 
 ## What Gets Updated
