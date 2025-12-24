@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 MCP_DB = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
-RESERVATIONS_DIR = Path.home() / ".mcp_agent_mail" / "reservations"
+# Note: Reservations are now stored in SQLite, not JSON files
 
 
 def get_stale_agents(conn, hours):
@@ -58,62 +58,62 @@ def get_stale_agents(conn, hours):
     return all_agents, stale, threshold
 
 
-def get_orphaned_reservations(hours):
-    """Find reservation files that are expired or have no matching agent."""
+def get_orphaned_reservations(conn, hours):
+    """Find reservations in SQLite that are expired or stale."""
     orphaned = []
-    
-    if not RESERVATIONS_DIR.exists():
-        return orphaned
-    
-    now = time.time()
-    stale_threshold = hours * 3600
-    
-    for res_file in RESERVATIONS_DIR.glob("*.json"):
+    cursor = conn.cursor()
+
+    now = datetime.utcnow()
+    now_str = now.strftime('%Y-%m-%d %H:%M:%S')
+    threshold = now - timedelta(hours=hours)
+    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Get all non-released reservations that are either expired or stale
+    cursor.execute("""
+        SELECT
+            fr.id,
+            fr.path_pattern,
+            fr.reason,
+            fr.created_ts,
+            fr.expires_ts,
+            a.name as agent_name
+        FROM file_reservations fr
+        JOIN agents a ON fr.agent_id = a.id
+        WHERE fr.released_ts IS NULL
+          AND (fr.expires_ts < ? OR fr.created_ts < ?)
+        ORDER BY fr.created_ts DESC
+    """, (now_str, threshold_str))
+
+    for row in cursor.fetchall():
         try:
-            with open(res_file) as f:
-                data = json.load(f)
-            
-            # Parse timestamps
-            created_at = data.get("created_at", 0)
-            expires_at = data.get("expires_at", 0)
-            
-            # Handle ISO format timestamps
-            if isinstance(created_at, str):
-                try:
-                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                    created_at = dt.timestamp()
-                except:
-                    created_at = 0
-            
-            if isinstance(expires_at, str):
-                try:
-                    dt = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-                    expires_at = dt.timestamp()
-                except:
-                    expires_at = 0
-            
-            # Check if expired or stale
-            is_expired = expires_at > 0 and expires_at < now
-            is_stale = created_at > 0 and (now - created_at) > stale_threshold
-            
-            if is_expired or is_stale:
-                orphaned.append({
-                    "file": res_file,
-                    "agent": data.get("agent_name", "unknown"),
-                    "paths": data.get("paths", []),
-                    "reason": "expired" if is_expired else "stale",
-                    "age_hours": round((now - created_at) / 3600, 1) if created_at > 0 else None
-                })
-        except (json.JSONDecodeError, IOError):
-            # Corrupted file - mark for cleanup
+            created_at = datetime.fromisoformat(row[3].replace('Z', '+00:00')) if row[3] else now
+            expires_at = datetime.fromisoformat(row[4].replace('Z', '+00:00')) if row[4] else now
+
+            # Handle timezone-naive datetimes
+            if created_at.tzinfo:
+                created_at = created_at.replace(tzinfo=None)
+            if expires_at.tzinfo:
+                expires_at = expires_at.replace(tzinfo=None)
+
+            is_expired = expires_at < now
+            age_hours = (now - created_at).total_seconds() / 3600
+
             orphaned.append({
-                "file": res_file,
-                "agent": "unknown",
-                "paths": [],
+                "id": row[0],
+                "agent": row[5],
+                "paths": [row[1]],
+                "reason": "expired" if is_expired else "stale",
+                "age_hours": round(age_hours, 1)
+            })
+        except (ValueError, AttributeError):
+            orphaned.append({
+                "id": row[0],
+                "agent": row[5] or "unknown",
+                "paths": [row[1]] if row[1] else [],
                 "reason": "corrupted",
                 "age_hours": None
             })
-    
+
     return orphaned
 
 
@@ -136,19 +136,25 @@ def delete_stale_agents(conn, stale_agents):
     return deleted
 
 
-def delete_orphaned_reservations(orphaned):
-    """Delete orphaned reservation files."""
-    deleted = 0
-    
+def delete_orphaned_reservations(conn, orphaned):
+    """Release orphaned reservations in the database."""
+    cursor = conn.cursor()
+    released = 0
+    now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+
     for item in orphaned:
         try:
-            item["file"].unlink()
-            deleted += 1
-            print(f"  Deleted: {item['file'].name} ({item['reason']})")
-        except IOError as e:
-            print(f"  Error deleting {item['file'].name}: {e}")
-    
-    return deleted
+            cursor.execute(
+                "UPDATE file_reservations SET released_ts = ? WHERE id = ?",
+                (now_str, item["id"])
+            )
+            released += 1
+            print(f"  Released: {item['agent']} - {item['paths'][0] if item['paths'] else 'unknown'} ({item['reason']})")
+        except sqlite3.Error as e:
+            print(f"  Error releasing reservation {item['id']}: {e}")
+
+    conn.commit()
+    return released
 
 
 def main():
@@ -170,7 +176,7 @@ def main():
     
     # Get data
     all_agents, stale_agents, threshold = get_stale_agents(conn, args.hours)
-    orphaned_reservations = get_orphaned_reservations(args.hours)
+    orphaned_reservations = get_orphaned_reservations(conn, args.hours)
     
     # Summary
     if not args.cron:
@@ -212,9 +218,9 @@ def main():
             print(f"  Total deleted: {deleted_agents}")
         
         if orphaned_reservations:
-            print("\nDeleting orphaned reservations:")
-            deleted_res = delete_orphaned_reservations(orphaned_reservations)
-            print(f"  Total deleted: {deleted_res}")
+            print("\nReleasing orphaned reservations:")
+            released_res = delete_orphaned_reservations(conn, orphaned_reservations)
+            print(f"  Total released: {released_res}")
         
         if args.cron:
             # Cron mode: minimal output

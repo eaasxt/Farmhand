@@ -486,9 +486,8 @@ export PATH="/home/ubuntu/.local/bin:/home/ubuntu/.bun/bin:$PATH"
 ├── .claude/
 │   ├── settings.json    # Hook configuration
 │   ├── hooks/           # Enforcement hooks
-│   └── agent-state.json # Current agent state
-├── .mcp_agent_mail/     # Agent Mail storage
-├── mcp_agent_mail/      # Agent Mail server
+│   └── agent-state.json # Current agent state (or state-{AGENT_NAME}.json)
+├── mcp_agent_mail/      # Agent Mail server (SQLite in storage.sqlite3)
 └── CLAUDE.md            # This file
 ```
 

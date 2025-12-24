@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook (v5 - Prioritizes registered name from state file)
----------------------------------------------------------------------------------
+File Reservation Checker Hook (v6 - Uses consistent state file logic)
+----------------------------------------------------------------------
 Queries the MCP Agent Mail SQLite database directly for file reservations.
 
+State file logic (matches mcp-state-tracker.py and session-init.py):
+- When AGENT_NAME is set: uses state-{AGENT_NAME}.json (multi-agent)
+- When AGENT_NAME is not set: uses agent-state.json (single-agent)
+
 Agent name resolution (in order):
-1. agent-state.json (set by mcp-state-tracker when registering via MCP)
+1. State file (set by mcp-state-tracker when registering via MCP)
 2. AGENT_NAME env var (for multi-agent ntm scenarios, must be valid)
 3. None (not registered)
 
@@ -36,9 +40,18 @@ def is_valid_agent_name(name):
         return False
     return bool(VALID_AGENT_NAME_PATTERN.match(name))
 
+def get_state_file():
+    """Get the state file path for this agent (matches mcp-state-tracker.py)."""
+    if AGENT_NAME_ENV:
+        # Multi-agent: per-agent state file
+        return STATE_DIR / f"state-{AGENT_NAME_ENV}.json"
+    else:
+        # Single-agent: legacy shared state file
+        return STATE_DIR / "agent-state.json"
+
 def get_state_from_file():
-    """Get agent state from agent-state.json."""
-    state_file = STATE_DIR / "agent-state.json"
+    """Get agent state from the appropriate state file."""
+    state_file = get_state_file()
     if state_file.exists():
         try:
             with open(state_file) as f:
