@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 JOHNDEERE_HOME="$HOME/.johndeere"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -45,29 +45,34 @@ echo ""
 BACKUP_DIR="$JOHNDEERE_HOME/backups/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
-echo "[1/4] Creating backup..."
+echo "[1/5] Creating backup..."
 cp ~/.claude/settings.json "$BACKUP_DIR/" 2>/dev/null || true
 cp ~/.zshrc "$BACKUP_DIR/" 2>/dev/null || true
 cp ~/CLAUDE.md "$BACKUP_DIR/" 2>/dev/null || true
 cp -r ~/.claude/hooks "$BACKUP_DIR/" 2>/dev/null || true
+cp -r ~/.claude/skills "$BACKUP_DIR/" 2>/dev/null || true
+cp -r ~/.claude/commands "$BACKUP_DIR/" 2>/dev/null || true
 echo "    Backup saved to $BACKUP_DIR"
 
-echo "[2/4] Updating hooks..."
+echo "[2/5] Updating git submodules..."
+cd "$SCRIPT_DIR"
+git submodule update --init --recursive
+git submodule update --remote
+echo "    Submodules updated"
+
+echo "[3/5] Updating hooks..."
 cp "$SCRIPT_DIR/hooks/"*.py ~/.claude/hooks/
 cp "$SCRIPT_DIR/hooks/"*.sh ~/.claude/hooks/
 echo "    Hooks updated"
 
-echo "[3/4] Updating configurations..."
+echo "[4/5] Updating configurations..."
 cp "$SCRIPT_DIR/config/CLAUDE.md" ~/CLAUDE.md
 cp "$SCRIPT_DIR/config/claude-settings.json" ~/.claude/settings.json
 cp "$SCRIPT_DIR/config/ntm/command_palette.md" ~/.config/ntm/ 2>/dev/null || mkdir -p ~/.config/ntm && cp "$SCRIPT_DIR/config/ntm/command_palette.md" ~/.config/ntm/
 echo "    Configurations updated"
 
-echo "[4/4] Updating utilities..."
-cp "$SCRIPT_DIR/bin/bd-cleanup" ~/.local/bin/
-cp "$SCRIPT_DIR/bin/cass" ~/.local/bin/
-chmod +x ~/.local/bin/bd-cleanup ~/.local/bin/cass
-echo "    Utilities updated"
+echo "[5/5] Installing Knowledge & Vibes..."
+source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
 
 # Update version
 echo "$VERSION" > "$JOHNDEERE_HOME/version"
@@ -77,11 +82,17 @@ echo ""
 echo -e "${GREEN}Upgrade complete! v$INSTALLED_VERSION → v$VERSION${NC}"
 echo ""
 echo "Changes in v$VERSION:"
-echo "  - Updated hooks with improved file reservation logic"
-echo "  - Enhanced CLAUDE.md with comprehensive workflow docs"
-echo "  - Added UBS integration hook (on-file-write.sh)"
-echo "  - Added cass Docker wrapper for Ubuntu 22.04 compatibility"
-echo "  - Added NTM command palette with 40+ prompts"
-echo "  - Full zsh configuration with powerlevel10k"
+echo "  - Added Knowledge & Vibes workflow layer (git submodule)"
+echo "  - 18 skills for common development patterns"
+echo "  - 7 slash commands (/prime, /calibrate, /execute, etc.)"
+echo "  - 3 behavior rules (beads, multi-agent, safety)"
+echo "  - 8 documentation templates"
+echo "  - 19 formalized protocols with research backing"
+echo ""
+echo "New slash commands:"
+echo "  /prime      - Start session, register agent, claim work"
+echo "  /calibrate  - 5-phase alignment check between phases"
+echo "  /next-bead  - Close current task, UBS scan, claim next"
+echo "  /release    - End session, cleanup"
 echo ""
 echo "Backup location: $BACKUP_DIR"

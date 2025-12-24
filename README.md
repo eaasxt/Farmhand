@@ -1,4 +1,4 @@
-# JohnDeere v2.0.0
+# JohnDeere v2.1.0
 
 Agentic VM Setup - Transform a fresh Ubuntu VPS into a fully-configured multi-agent AI coding environment.
 
@@ -66,6 +66,18 @@ cd ~/JohnDeere
 - **MCP Agent Mail** - Agent messaging and file reservations
 - **Enforcement Hooks** - Block TodoWrite, enforce reservations
 - **Ollama** - Local LLM for embeddings/reranking
+
+### Knowledge & Vibes Workflow
+
+Structured workflow framework with research-backed protocols:
+
+| Component | Count | Description |
+|-----------|-------|-------------|
+| **Skills** | 18 | Reusable development patterns |
+| **Slash Commands** | 7 | `/prime`, `/calibrate`, `/execute`, `/next-bead`, `/decompose-task`, `/ground`, `/release` |
+| **Rules** | 3 | beads, multi-agent, safety |
+| **Templates** | 8 | North Star Card, Requirements, ADRs, etc. |
+| **Protocols** | 19 | Planning, decomposition, execution, quality gates |
 
 ## Installation Options
 
@@ -197,7 +209,15 @@ Hooks enforce the multi-agent workflow:
 
 ## Version History
 
-### v2.0.0 (Current)
+### v2.1.0 (Current)
+- Added Knowledge & Vibes workflow layer (git submodule)
+- 18 skills for common development patterns
+- 7 slash commands (/prime, /calibrate, /execute, etc.)
+- 3 behavior rules (beads, multi-agent, safety)
+- 8 documentation templates
+- 19 formalized protocols with research backing
+
+### v2.0.0
 - Complete restructure from vestigial v1
 - Added Dicklesworthstone stack (8 tools)
 - Added cloud CLIs (vault, wrangler, supabase, vercel)
@@ -226,6 +246,7 @@ Hooks enforce the multi-agent workflow:
 | slb | [Dicklesworthstone/simultaneous_launch_button](https://github.com/Dicklesworthstone/simultaneous_launch_button) |
 | cass | [Dicklesworthstone/coding_agent_session_search](https://github.com/Dicklesworthstone/coding_agent_session_search) |
 | MCP Agent Mail | [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail) |
+| Knowledge & Vibes | [Mburdo/knowledge_and_vibes](https://github.com/Mburdo/knowledge_and_vibes) |
 
 ## License
 

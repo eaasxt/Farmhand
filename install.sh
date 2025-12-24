@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 JOHNDEERE_HOME="$HOME/.johndeere"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -115,15 +115,16 @@ echo "    Total memory: ${TOTAL_MEM}GB"
 if [[ "$DRY_RUN" == true ]]; then
     echo ""
     echo -e "${YELLOW}DRY RUN - Would execute the following phases:${NC}"
-    echo "  [1/9] System dependencies (apt, homebrew, bun, uv)"
-    echo "  [2/9] Core tools (bd, bv, qmd, claude)"
-    echo "  [3/9] Stack tools (ubs, ntm, cm, caam, slb, cass)"
-    [[ "$MINIMAL" != true ]] && echo "  [4/9] Cloud CLIs (vault, wrangler, supabase, vercel)"
-    echo "  [5/9] AI agents (codex, gemini, node)"
-    [[ "$SKIP_OLLAMA" != true ]] && echo "  [6/9] Ollama + models"
-    echo "  [7/9] MCP Agent Mail"
-    echo "  [8/9] Shell configuration (zsh, oh-my-zsh, p10k)"
-    echo "  [9/9] Enforcement hooks"
+    echo "  [1/10] System dependencies (apt, homebrew, bun, uv)"
+    echo "  [2/10] Core tools (bd, bv, qmd, claude)"
+    echo "  [3/10] Stack tools (ubs, ntm, cm, caam, slb, cass)"
+    [[ "$MINIMAL" != true ]] && echo "  [4/10] Cloud CLIs (vault, wrangler, supabase, vercel)"
+    echo "  [5/10] AI agents (codex, gemini, node)"
+    [[ "$SKIP_OLLAMA" != true ]] && echo "  [6/10] Ollama + models"
+    echo "  [7/10] MCP Agent Mail"
+    echo "  [8/10] Shell configuration (zsh, oh-my-zsh, p10k)"
+    echo "  [9/10] Enforcement hooks"
+    echo "  [10/10] Knowledge & Vibes workflow (18 skills, 7 commands)"
     exit 0
 fi
 
@@ -151,6 +152,7 @@ fi
 source "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh"
 source "$SCRIPT_DIR/scripts/install/08-shell-config.sh"
 source "$SCRIPT_DIR/scripts/install/09-hooks.sh"
+source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
 
 # Record installation
 mkdir -p "$JOHNDEERE_HOME"
@@ -171,11 +173,17 @@ echo "  3. Run 'codex login --device-auth' to authenticate Codex"
 echo "  4. Run 'gemini' to authenticate Gemini"
 echo ""
 echo "Quick commands:"
-echo "  cla     - Claude Code (dangerous mode)"
+echo "  cc      - Claude Code (dangerous mode)"
 echo "  cod     - Codex CLI (full auto)"
 echo "  gmi     - Gemini CLI (yolo mode)"
 echo "  bd      - Beads issue tracking"
 echo "  ntm     - Named Tmux Manager"
+echo ""
+echo "Slash commands (in Claude):"
+echo "  /prime  - Start session, register agent, claim work"
+echo "  /calibrate - Check alignment between phases"
+echo "  /next-bead - Close current, UBS scan, claim next"
+echo "  /release - End session, cleanup"
 echo ""
 echo "Verify installation:"
 echo "  $SCRIPT_DIR/scripts/verify.sh"

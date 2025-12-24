@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+"""
+Agent Cleanup Script
+--------------------
+Removes stale agents from MCP Agent Mail database and cleans up orphaned reservations.
+
+Usage:
+    agent-cleanup              # Interactive - show what would be cleaned
+    agent-cleanup --force      # Actually delete stale agents
+    agent-cleanup --hours 4    # Set staleness threshold (default: 2 hours)
+    agent-cleanup --cron       # Non-interactive mode for cron jobs
+"""
+
+import argparse
+import json
+import os
+import sqlite3
+import sys
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+
+MCP_DB = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
+RESERVATIONS_DIR = Path.home() / ".mcp_agent_mail" / "reservations"
+
+
+def get_stale_agents(conn, hours):
+    """Get agents that haven't been active in the specified hours."""
+    cursor = conn.cursor()
+    
+    # Get all agents with their last activity
+    cursor.execute("""
+        SELECT a.id, a.name, p.slug as project, a.program, a.model, 
+               datetime(a.last_active_ts) as last_active,
+               datetime(a.inception_ts) as registered
+        FROM agents a
+        JOIN projects p ON a.project_id = p.id
+        ORDER BY a.last_active_ts DESC
+    """)
+    
+    all_agents = cursor.fetchall()
+    
+    # Calculate threshold
+    threshold = datetime.utcnow() - timedelta(hours=hours)
+    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Get stale agents
+    cursor.execute("""
+        SELECT a.id, a.name, p.slug as project, a.program, a.model,
+               datetime(a.last_active_ts) as last_active
+        FROM agents a
+        JOIN projects p ON a.project_id = p.id
+        WHERE a.last_active_ts < ?
+    """, (threshold_str,))
+    
+    stale = cursor.fetchall()
+    
+    return all_agents, stale, threshold
+
+
+def get_orphaned_reservations(hours):
+    """Find reservation files that are expired or have no matching agent."""
+    orphaned = []
+    
+    if not RESERVATIONS_DIR.exists():
+        return orphaned
+    
+    now = time.time()
+    stale_threshold = hours * 3600
+    
+    for res_file in RESERVATIONS_DIR.glob("*.json"):
+        try:
+            with open(res_file) as f:
+                data = json.load(f)
+            
+            # Parse timestamps
+            created_at = data.get("created_at", 0)
+            expires_at = data.get("expires_at", 0)
+            
+            # Handle ISO format timestamps
+            if isinstance(created_at, str):
+                try:
+                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    created_at = dt.timestamp()
+                except:
+                    created_at = 0
+            
+            if isinstance(expires_at, str):
+                try:
+                    dt = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                    expires_at = dt.timestamp()
+                except:
+                    expires_at = 0
+            
+            # Check if expired or stale
+            is_expired = expires_at > 0 and expires_at < now
+            is_stale = created_at > 0 and (now - created_at) > stale_threshold
+            
+            if is_expired or is_stale:
+                orphaned.append({
+                    "file": res_file,
+                    "agent": data.get("agent_name", "unknown"),
+                    "paths": data.get("paths", []),
+                    "reason": "expired" if is_expired else "stale",
+                    "age_hours": round((now - created_at) / 3600, 1) if created_at > 0 else None
+                })
+        except (json.JSONDecodeError, IOError):
+            # Corrupted file - mark for cleanup
+            orphaned.append({
+                "file": res_file,
+                "agent": "unknown",
+                "paths": [],
+                "reason": "corrupted",
+                "age_hours": None
+            })
+    
+    return orphaned
+
+
+def delete_stale_agents(conn, stale_agents):
+    """Delete stale agents from the database."""
+    cursor = conn.cursor()
+    deleted = 0
+    
+    for agent in stale_agents:
+        agent_id = agent[0]
+        agent_name = agent[1]
+        try:
+            cursor.execute("DELETE FROM agents WHERE id = ?", (agent_id,))
+            deleted += 1
+            print(f"  Deleted: {agent_name}")
+        except sqlite3.Error as e:
+            print(f"  Error deleting {agent_name}: {e}")
+    
+    conn.commit()
+    return deleted
+
+
+def delete_orphaned_reservations(orphaned):
+    """Delete orphaned reservation files."""
+    deleted = 0
+    
+    for item in orphaned:
+        try:
+            item["file"].unlink()
+            deleted += 1
+            print(f"  Deleted: {item['file'].name} ({item['reason']})")
+        except IOError as e:
+            print(f"  Error deleting {item['file'].name}: {e}")
+    
+    return deleted
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Clean up stale agents and orphaned reservations")
+    parser.add_argument("--force", action="store_true", help="Actually delete (default: dry run)")
+    parser.add_argument("--hours", type=float, default=2.0, help="Staleness threshold in hours (default: 2)")
+    parser.add_argument("--cron", action="store_true", help="Non-interactive mode for cron jobs")
+    args = parser.parse_args()
+    
+    if not MCP_DB.exists():
+        print(f"MCP database not found: {MCP_DB}")
+        sys.exit(1)
+    
+    try:
+        conn = sqlite3.connect(str(MCP_DB))
+    except sqlite3.Error as e:
+        print(f"Failed to connect to database: {e}")
+        sys.exit(1)
+    
+    # Get data
+    all_agents, stale_agents, threshold = get_stale_agents(conn, args.hours)
+    orphaned_reservations = get_orphaned_reservations(args.hours)
+    
+    # Summary
+    if not args.cron:
+        print(f"\n{'='*60}")
+        print(f"AGENT CLEANUP - Threshold: {args.hours} hours")
+        print(f"{'='*60}")
+        print(f"\nTotal agents in database: {len(all_agents)}")
+        print(f"Stale agents (>{args.hours}h inactive): {len(stale_agents)}")
+        print(f"Orphaned reservations: {len(orphaned_reservations)}")
+        
+        if all_agents:
+            print(f"\nAll registered agents:")
+            for agent in all_agents[:10]:  # Show first 10
+                print(f"  - {agent[1]} ({agent[3]}) last active: {agent[5]}")
+            if len(all_agents) > 10:
+                print(f"  ... and {len(all_agents) - 10} more")
+        
+        if stale_agents:
+            print(f"\nStale agents to remove:")
+            for agent in stale_agents:
+                print(f"  - {agent[1]} ({agent[3]}) last active: {agent[5]}")
+        
+        if orphaned_reservations:
+            print(f"\nOrphaned reservations to remove:")
+            for item in orphaned_reservations[:5]:
+                print(f"  - {item['agent']}: {item['paths'][:2]} ({item['reason']}, {item['age_hours']}h)")
+            if len(orphaned_reservations) > 5:
+                print(f"  ... and {len(orphaned_reservations) - 5} more")
+    
+    # Execute cleanup
+    if args.force:
+        print(f"\n{'='*60}")
+        print("EXECUTING CLEANUP")
+        print(f"{'='*60}")
+        
+        if stale_agents:
+            print("\nDeleting stale agents:")
+            deleted_agents = delete_stale_agents(conn, stale_agents)
+            print(f"  Total deleted: {deleted_agents}")
+        
+        if orphaned_reservations:
+            print("\nDeleting orphaned reservations:")
+            deleted_res = delete_orphaned_reservations(orphaned_reservations)
+            print(f"  Total deleted: {deleted_res}")
+        
+        if args.cron:
+            # Cron mode: minimal output
+            if stale_agents or orphaned_reservations:
+                print(f"Cleaned: {len(stale_agents)} agents, {len(orphaned_reservations)} reservations")
+        else:
+            print("\nCleanup complete!")
+    else:
+        if not args.cron:
+            print(f"\n{'='*60}")
+            print("DRY RUN - No changes made")
+            print("Run with --force to actually delete")
+            print(f"{'='*60}")
+        
+        # Exit code indicates if cleanup is needed
+        if stale_agents or orphaned_reservations:
+            sys.exit(1)  # Cleanup needed
+    
+    conn.close()
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

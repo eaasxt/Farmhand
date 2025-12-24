@@ -1,0 +1,3 @@
+[submodule "vendor/knowledge_and_vibes"]
+	path = vendor/knowledge_and_vibes
+	url = https://github.com/Mburdo/knowledge_and_vibes.git
