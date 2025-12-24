@@ -124,6 +124,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 # Environment Variables
 # =============================================================================
 export BEADS_DB=/home/ubuntu/.beads/beads.db
+export BEADS_DIR=/home/ubuntu/.beads  # Required for bv (beads-viewer)
 export BUN_INSTALL="$HOME/.bun"
 
 # =============================================================================
