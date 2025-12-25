@@ -56,7 +56,7 @@ fi
 # Gemini CLI
 if ! command -v gemini &>/dev/null; then
     echo "    Installing Gemini CLI..."
-    bun install -g @anthropic-ai/gemini-cli 2>/dev/null || bun install -g gemini-cli
+    bun install -g @google/gemini-cli
     echo "    Gemini installed: $(gemini --version 2>&1 | head -1)"
 else
     echo "    Gemini already installed: $(gemini --version 2>&1 | head -1)"

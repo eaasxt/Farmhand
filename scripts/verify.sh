@@ -187,8 +187,8 @@ fi
 echo ""
 echo "==> Version Info..."
 printf "%-35s" "Farmhand version"
-if [[ -f ~/.johndeere/version ]]; then
-    echo "v$(cat ~/.johndeere/version)"
+if [[ -f ~/.farmhand/version ]]; then
+    echo "v$(cat ~/.farmhand/version)"
 else
     echo "[NOT TRACKED]"
 fi

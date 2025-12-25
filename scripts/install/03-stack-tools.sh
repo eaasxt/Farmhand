@@ -33,7 +33,7 @@ fi
 # UBS (Ultimate Bug Scanner) - v5.0.0+ requires ast-grep for JS/TS
 if ! command -v ubs &>/dev/null; then
     echo "    Installing ubs..."
-    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/main/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/master/install.sh | bash
 else
     echo "    ubs already installed: $(ubs --version 2>&1 | head -1)"
 fi
@@ -41,7 +41,7 @@ fi
 # NTM (Named Tmux Manager)
 if ! command -v ntm &>/dev/null; then
     echo "    Installing ntm..."
-    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/named_tmux_manager/main/install.sh | bash -s -- --easy-mode
+    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ntm/main/install.sh | bash -s -- --no-shell
 else
     echo "    ntm already installed"
 fi

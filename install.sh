@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-VERSION="2.2.1"
+FARMHAND_VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
         --minimal) MINIMAL=true; shift ;;
         --skip-ollama) SKIP_OLLAMA=true; shift ;;
         --help|-h)
-            echo "Farmhand v$VERSION - Agentic VM Setup"
+            echo "Farmhand v$FARMHAND_VERSION - Agentic VM Setup"
             echo ""
             echo "Usage: ./install.sh [OPTIONS]"
             echo ""
@@ -93,7 +93,7 @@ cat << 'FARMHAND_TEXT'
 FARMHAND_TEXT
 echo -e "${NC}"
 echo -e "                   ${YELLOW}🚜${NC}  Agentic AI Coding VM Setup  ${GREEN}🌾${NC}"
-echo -e "                             Version ${BLUE}$VERSION${NC}"
+echo -e "                             Version ${BLUE}$FARMHAND_VERSION${NC}"
 echo ""
 
 # Check for existing installation
@@ -184,7 +184,7 @@ source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
 
 # Record installation
 mkdir -p "$FARMHAND_HOME"
-echo "$VERSION" > "$FARMHAND_HOME/version"
+echo "$FARMHAND_VERSION" > "$FARMHAND_HOME/version"
 date -Iseconds > "$FARMHAND_HOME/installed_at"
 
 # Success Banner
@@ -204,7 +204,7 @@ SUCCESS_ART
 echo -e "${NC}"
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                                                                          ║${NC}"
-echo -e "${GREEN}║   🎉  HARVEST COMPLETE!  Farmhand v$VERSION successfully installed!   ║${NC}"
+echo -e "${GREEN}║   🎉  HARVEST COMPLETE!  Farmhand v$FARMHAND_VERSION installed!       ║${NC}"
 echo -e "${GREEN}║                                                                          ║${NC}"
 echo -e "${GREEN}║   Your VM is now a fully-equipped AI coding powerhouse.                 ║${NC}"
 echo -e "${GREEN}║                                                                          ║${NC}"
