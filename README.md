@@ -1,10 +1,31 @@
 <div align="center">
 
-# 🚜 Farmhand
+```
+                                    .  *  .
+                             *  .    \  |  /    .  *
+                         *      ' -- -☀- -- '      *
+                             .     /  |  \     .
+                         *       .'   |   '.       *
+            __             _.-'  ____|____  '-._             __
+           /  \        _.-'     |        |     '-._        /  \
+          |    |   _.-'    _    |   __   |    _    '-._   |    |
+          |    |.-'       |_|   |  |__|  |   |_|       '-.|    |
+       ___|____|__________|_|___|________|___|_|__________|____|___
+      |                                                            |
+      |   \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/   |
+      |    |    |    |    |    |    |    |    |    |    |    |    |
+      |============================================================|
+       ______                         _   _                  _
+      |  ____|                       | | | |                | |
+      | |__    __ _  _ __  _ __ ___  | |_| | __ _  _ __   __| |
+      |  __|  / _` || '__|| '_ ` _ \ |  _  |/ _` || '_ \ / _` |
+      | |    | (_| || |   | | | | | || | | || (_| || | | || (_| |
+      |_|     \__,_||_|   |_| |_| |_||_| |_| \__,_||_| |_| \__,_|
+```
 
-### Transform a Fresh Ubuntu VM into a Multi-Agent AI Coding Powerhouse
+### 🚜 Transform a Fresh Ubuntu VM into a Multi-Agent AI Coding Powerhouse 🌾
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/Farmhand)
+[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
 [![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen.svg)](#testing)

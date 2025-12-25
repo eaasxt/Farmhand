@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-VERSION="2.1.0"
+VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -58,15 +58,43 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ASCII Art Banner
+echo -e "${YELLOW}"
+cat << 'SUNRISE'
+                                    .  *  .
+                             *  .    \  |  /    .  *
+                         *      ' -- -☀- -- '      *
+                             .     /  |  \     .
+                         *       .'   |   '.       *
+SUNRISE
+echo -e "${RED}"
+cat << 'BARNS'
+            __             _.-'  ____|____  '-._             __
+           /  \        _.-'     |        |     '-._        /  \
+          |    |   _.-'    _    |   __   |    _    '-._   |    |
+          |    |.-'       |_|   |  |__|  |   |_|       '-.|    |
+BARNS
+echo -e "${GREEN}"
+cat << 'FIELD'
+       ___|____|__________|_|___|________|___|_|__________|____|___
+      |                                                            |
+      |   \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/  \|/   |
+      |    |    |    |    |    |    |    |    |    |    |    |    |
+      |============================================================|
+FIELD
 echo -e "${BLUE}"
-echo "╔═══════════════════════════════════════════════════════════════════╗"
-echo "║                                                                   ║"
-echo "║       🚜 Farmhand v$VERSION - Agentic VM Setup                   ║"
-echo "║                                                                   ║"
-echo "║   Transforming this VM into an AI coding powerhouse...           ║"
-echo "║                                                                   ║"
-echo "╚═══════════════════════════════════════════════════════════════════╝"
+cat << 'FARMHAND_TEXT'
+       ______                         _   _                  _
+      |  ____|                       | | | |                | |
+      | |__    __ _  _ __  _ __ ___  | |_| | __ _  _ __   __| |
+      |  __|  / _` || '__|| '_ ` _ \ |  _  |/ _` || '_ \ / _` |
+      | |    | (_| || |   | | | | | || | | || (_| || | | || (_| |
+      |_|     \__,_||_|   |_| |_| |_||_| |_| \__,_||_| |_| \__,_|
+FARMHAND_TEXT
 echo -e "${NC}"
+echo -e "                   ${YELLOW}🚜${NC}  Agentic AI Coding VM Setup  ${GREEN}🌾${NC}"
+echo -e "                             Version ${BLUE}$VERSION${NC}"
+echo ""
 
 # Check for existing installation
 if [[ -f "$FARMHAND_HOME/version" ]]; then
@@ -159,12 +187,28 @@ mkdir -p "$FARMHAND_HOME"
 echo "$VERSION" > "$FARMHAND_HOME/version"
 date -Iseconds > "$FARMHAND_HOME/installed_at"
 
+# Success Banner
 echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                                                                   ║${NC}"
-echo -e "${GREEN}║   🎉 Farmhand v$VERSION installation complete!                   ║${NC}"
-echo -e "${GREEN}║                                                                   ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}"
+cat << 'SUCCESS_ART'
+      _.-~~~~~-._       _.-~~~~~-._       _.-~~~~~-._       _.-~~~~~-._
+     /           \     /           \     /           \     /           \
+    |    ) _ (    |   |    ) _ (    |   |    ) _ (    |   |    ) _ (    |
+    |   ( (_) )   |   |   ( (_) )   |   |   ( (_) )   |   |   ( (_) )   |
+    |    ) _ (    |   |    ) _ (    |   |    ) _ (    |   |    ) _ (    |
+     \    \_/    /     \    \_/    /     \    \_/    /     \    \_/    /
+      '-._____.-'       '-._____.-'       '-._____.-'       '-._____.-'
+         |||               |||               |||               |||
+    ~~~~~|||~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SUCCESS_ART
+echo -e "${NC}"
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                                                                          ║${NC}"
+echo -e "${GREEN}║   🎉  HARVEST COMPLETE!  Farmhand v$VERSION successfully installed!   ║${NC}"
+echo -e "${GREEN}║                                                                          ║${NC}"
+echo -e "${GREEN}║   Your VM is now a fully-equipped AI coding powerhouse.                 ║${NC}"
+echo -e "${GREEN}║                                                                          ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "Next steps:"
 echo "  1. Run 'exec zsh' to switch to the new shell"
