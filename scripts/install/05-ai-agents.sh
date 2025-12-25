@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-echo "[5/9] Installing AI Coding Agents..."
+echo "[4/9] Installing AI Coding Agents..."
 
 # Node.js via fnm (needed for Codex)
 if ! command -v node &>/dev/null; then

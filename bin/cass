@@ -1,14 +1,32 @@
 #!/bin/bash
-# cass wrapper - runs in Docker with Ubuntu 24.04 for GLIBC 2.39 compatibility
+# cass wrapper - runs directly on Ubuntu 24.04+ (GLIBC 2.39+)
+# Falls back to Docker on older systems (Ubuntu 22.04)
+
+# Ensure data directory exists
+mkdir -p "$HOME/.local/share/coding-agent-search"
+
+# Check GLIBC version (2.39+ required for native execution)
+GLIBC_VERSION=$(ldd --version 2>&1 | head -1 | grep -oE '[0-9]+\.[0-9]+$' || echo "0.0")
+GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1)
+GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2)
+
+# If GLIBC >= 2.39, run directly
+if [[ "$GLIBC_MAJOR" -gt 2 ]] || [[ "$GLIBC_MAJOR" -eq 2 && "$GLIBC_MINOR" -ge 39 ]]; then
+    exec /opt/cass/cass "$@"
+fi
+
+# Fall back to Docker for older systems
+if ! command -v docker &>/dev/null; then
+    echo "Error: cass requires Docker on Ubuntu 22.04 (GLIBC < 2.39)" >&2
+    echo "Install Docker or upgrade to Ubuntu 24.04+" >&2
+    exit 1
+fi
 
 # Detect if we have a TTY
 TTY_FLAG=""
 if [ -t 0 ] && [ -t 1 ]; then
   TTY_FLAG="-it"
 fi
-
-# Ensure data directory exists
-mkdir -p "$HOME/.local/share/coding-agent-search"
 
 # Mount paths for agent session data
 docker run --rm $TTY_FLAG \

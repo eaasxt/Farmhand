@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-echo "[4/9] Installing Cloud CLIs..."
+echo "[5/9] Installing Cloud CLIs..."
 
 # HashiCorp Vault
 if ! command -v vault &>/dev/null; then

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Note: Not using set -e because arithmetic operations can return non-zero
+set -uo pipefail
 
-# Verify Farmhand v2.1.0 installation
+# Verify Farmhand v2.2.1 installation
 
 echo "=========================================="
-echo "  Farmhand v2.1.0 Installation Verify"
+echo "  Farmhand v2.2.1 Installation Verify"
 echo "=========================================="
 echo ""
 
@@ -18,10 +19,10 @@ check() {
     printf "%-35s" "$name"
     if eval "$cmd" &>/dev/null; then
         echo "[OK]"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "[FAIL]"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
@@ -31,10 +32,10 @@ check_optional() {
     printf "%-35s" "$name"
     if eval "$cmd" &>/dev/null; then
         echo "[OK]"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "[SKIP]"
-        ((WARN++))
+        WARN=$((WARN + 1))
     fi
 }
 
@@ -43,10 +44,10 @@ check_service() {
     printf "%-35s" "$name service"
     if systemctl is-active --quiet "$name" 2>/dev/null; then
         echo "[RUNNING]"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "[NOT RUNNING]"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
@@ -116,10 +117,10 @@ printf "%-35s" "Skills (18 expected)"
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
 if [[ "$SKILLS_COUNT" -ge 15 ]]; then
     echo "[OK] ($SKILLS_COUNT installed)"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[INCOMPLETE] ($SKILLS_COUNT installed)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # Check commands
@@ -127,10 +128,10 @@ printf "%-35s" "Commands (7 expected)"
 CMDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
 if [[ "$CMDS_COUNT" -ge 5 ]]; then
     echo "[OK] ($CMDS_COUNT installed)"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[INCOMPLETE] ($CMDS_COUNT installed)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # Check rules
@@ -138,10 +139,10 @@ printf "%-35s" "Rules (3 expected)"
 RULES_COUNT=$(ls ~/.claude/rules/ 2>/dev/null | wc -l)
 if [[ "$RULES_COUNT" -ge 3 ]]; then
     echo "[OK] ($RULES_COUNT installed)"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[INCOMPLETE] ($RULES_COUNT installed)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # Check templates
@@ -149,10 +150,10 @@ printf "%-35s" "Templates (8 expected)"
 TEMPLATES_COUNT=$(ls ~/templates/ 2>/dev/null | wc -l)
 if [[ "$TEMPLATES_COUNT" -ge 5 ]]; then
     echo "[OK] ($TEMPLATES_COUNT installed)"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[INCOMPLETE] ($TEMPLATES_COUNT installed)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # Check key commands exist
@@ -169,19 +170,19 @@ echo "==> Ollama Models..."
 printf "%-35s" "embeddinggemma"
 if ollama list 2>/dev/null | grep -q "embeddinggemma"; then
     echo "[INSTALLED]"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[MISSING]"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 printf "%-35s" "qwen3-reranker"
 if ollama list 2>/dev/null | grep -q "qwen3-reranker"; then
     echo "[INSTALLED]"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[MISSING]"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 echo ""
@@ -220,10 +221,10 @@ echo "==> Path Verification (ACFS checks)..."
 printf "%-35s" "Claude in ~/.local/bin"
 if [[ -x ~/.local/bin/claude ]] || [[ -L ~/.local/bin/claude ]]; then
     echo "[OK]"
-    ((PASS++))
+    PASS=$((PASS + 1))
 else
     echo "[WARN] (use Homebrew path)"
-    ((WARN++))
+    WARN=$((WARN + 1))
 fi
 
 # Check for stale agent state
@@ -232,14 +233,14 @@ if [[ -f ~/.claude/agent-state.json ]]; then
     STATE_AGE=$(( $(date +%s) - $(stat -c %Y ~/.claude/agent-state.json 2>/dev/null || echo 0) ))
     if [[ $STATE_AGE -gt 14400 ]]; then  # 4 hours
         echo "[STALE] (>4h old, run bd-cleanup)"
-        ((WARN++))
+        WARN=$((WARN + 1))
     else
         echo "[OK]"
-        ((PASS++))
+        PASS=$((PASS + 1))
     fi
 else
     echo "[NONE] (will create on first run)"
-    ((PASS++))
+    PASS=$((PASS + 1))
 fi
 
 echo ""
