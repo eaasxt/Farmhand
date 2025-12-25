@@ -367,24 +367,24 @@ unset FARMHAND_SKIP_ENFORCEMENT
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            ENFORCED WORKFLOW                                │
+│                             ENFORCED WORKFLOW                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  1. FIND WORK              2. REGISTER              3. RESERVE             │
-│  ┌─────────────┐           ┌─────────────┐          ┌─────────────┐        │
-│  │ bd ready    │──────────▶│ register_   │─────────▶│ file_       │        │
-│  │ bd update   │           │ agent()     │          │ reservation │        │
-│  │ --status=   │           │             │          │ _paths()    │        │
-│  │ in_progress │           │ → "BlueLake"│          │ ["src/**"]  │        │
-│  └─────────────┘           └─────────────┘          └─────────────┘        │
+│  1. FIND WORK              2. REGISTER              3. RESERVE              │
+│  ┌─────────────┐           ┌─────────────┐          ┌─────────────┐         │
+│  │ bd ready    │──────────▶│ register_   │─────────▶│ file_       │         │
+│  │ bd update   │           │ agent()     │          │ reservation │         │
+│  │ --status=   │           │             │          │ _paths()    │         │
+│  │ in_progress │           │ → "BlueLake"│          │ ["src/**"]  │         │
+│  └─────────────┘           └─────────────┘          └─────────────┘         │
 │                                                                             │
-│  4. WORK                   5. COMMIT                6. CLEANUP             │
-│  ┌─────────────┐           ┌─────────────┐          ┌─────────────┐        │
-│  │ Edit files  │──────────▶│ ubs <files> │─────────▶│ release_    │        │
-│  │ (hooks      │           │ git commit  │          │ file_       │        │
-│  │ allow now)  │           │ git push    │          │ reservations│        │
-│  └─────────────┘           └─────────────┘          │ bd close    │        │
-│                                                     └─────────────┘        │
+│  4. WORK                   5. COMMIT                6. CLEANUP              │
+│  ┌─────────────┐           ┌─────────────┐          ┌─────────────┐         │
+│  │ Edit files  │──────────▶│ ubs <files> │─────────▶│ release_    │         │
+│  │ (hooks      │           │ git commit  │          │ file_       │         │
+│  │ allow now)  │           │ git push    │          │ reservations│         │
+│  └─────────────┘           └─────────────┘          │ bd close    │         │
+│                                                     └─────────────┘         │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
