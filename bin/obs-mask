@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""
+Observation Masking Utility (obs-mask)
+--------------------------------------
+Stores large tool outputs to session artifacts and returns a summary.
+
+Based on context-engineering research showing that observation masking
+reduces context consumption by 60-80% for large outputs while preserving
+retrieval capability.
+
+Usage:
+    # Pipe command output through obs-mask
+    ubs --staged | obs-mask --threshold 2000 --label "ubs-scan"
+
+    # Returns summary if output exceeds threshold:
+    # [MASKED] Output stored to ~/.claude/sessions/<id>/artifacts/ubs-scan-<timestamp>.txt
+    # Summary: 15 issues found (3 critical, 5 high, 7 medium)
+    # First 500 chars shown below:
+    # ...
+
+    # Or passes through if under threshold
+
+Options:
+    --threshold N   Token threshold (default: 2000, ~8000 chars)
+    --label NAME    Label for artifact file (default: "output")
+    --session ID    Session ID (default: uses timestamp)
+    --summary-only  Only output summary, not first N chars
+    --json          Output structured JSON instead of text
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+
+def estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~4 chars per token for English."""
+    return len(text) // 4
+
+
+def extract_ubs_summary(output: str) -> str:
+    """Extract summary from UBS output if possible."""
+    # Look for summary line patterns
+    patterns = [
+        r'(\d+)\s*(?:issues?|findings?|problems?)\s*(?:found|detected)',
+        r'(?:critical|high|medium|low|warning):\s*(\d+)',
+        r'Exit code:\s*(\d+)',
+    ]
+
+    summaries = []
+    for pattern in patterns:
+        matches = re.findall(pattern, output, re.IGNORECASE)
+        if matches:
+            summaries.append(f"Matched: {matches}")
+
+    # Count severity levels
+    critical = len(re.findall(r'\bcritical\b', output, re.IGNORECASE))
+    high = len(re.findall(r'\bhigh\b', output, re.IGNORECASE))
+    medium = len(re.findall(r'\bmedium\b', output, re.IGNORECASE))
+    low = len(re.findall(r'\blow\b', output, re.IGNORECASE))
+
+    if any([critical, high, medium, low]):
+        return f"Findings by severity: {critical} critical, {high} high, {medium} medium, {low} low"
+
+    # Fallback: count lines with common issue indicators
+    issue_lines = len([l for l in output.split('\n') if any(x in l for x in ['error', 'warning', 'issue', '⚠️', '❌'])])
+    if issue_lines > 0:
+        return f"~{issue_lines} issue lines detected"
+
+    return f"Output length: {len(output)} chars, {len(output.split(chr(10)))} lines"
+
+
+def get_session_dir(session_id: str = None) -> Path:
+    """Get or create session artifacts directory."""
+    base = Path.home() / ".claude" / "sessions"
+
+    if session_id:
+        session_dir = base / session_id / "artifacts"
+    else:
+        # Use date-based session ID
+        session_id = datetime.now().strftime("%Y%m%d")
+        session_dir = base / session_id / "artifacts"
+
+    session_dir.mkdir(parents=True, exist_ok=True)
+    return session_dir
+
+
+def store_artifact(output: str, label: str, session_id: str = None) -> Path:
+    """Store output to artifact file and return path."""
+    session_dir = get_session_dir(session_id)
+
+    # Create filename with timestamp and hash
+    timestamp = datetime.now().strftime("%H%M%S")
+    content_hash = hashlib.md5(output.encode()).hexdigest()[:8]
+    filename = f"{label}-{timestamp}-{content_hash}.txt"
+
+    artifact_path = session_dir / filename
+    artifact_path.write_text(output)
+
+    return artifact_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Observation masking for large tool outputs")
+    parser.add_argument("--threshold", type=int, default=2000,
+                       help="Token threshold for masking (default: 2000)")
+    parser.add_argument("--label", default="output",
+                       help="Label for artifact file (default: output)")
+    parser.add_argument("--session", default=None,
+                       help="Session ID (default: uses date)")
+    parser.add_argument("--summary-only", action="store_true",
+                       help="Only output summary, not preview")
+    parser.add_argument("--json", action="store_true",
+                       help="Output structured JSON")
+    parser.add_argument("--preview-chars", type=int, default=500,
+                       help="Preview chars to show (default: 500)")
+
+    args = parser.parse_args()
+
+    # Read all input
+    output = sys.stdin.read()
+
+    # Estimate tokens
+    tokens = estimate_tokens(output)
+
+    # If under threshold, pass through
+    if tokens <= args.threshold:
+        print(output, end='')
+        return
+
+    # Store to artifact
+    artifact_path = store_artifact(output, args.label, args.session)
+
+    # Generate summary
+    summary = extract_ubs_summary(output)
+
+    # Build result
+    if args.json:
+        result = {
+            "masked": True,
+            "artifact_path": str(artifact_path),
+            "original_tokens": tokens,
+            "original_chars": len(output),
+            "original_lines": len(output.split('\n')),
+            "summary": summary,
+            "preview": output[:args.preview_chars] if not args.summary_only else None
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"[MASKED] Large output stored to: {artifact_path}")
+        print(f"Summary: {summary}")
+        print(f"Stats: ~{tokens} tokens, {len(output)} chars, {len(output.split(chr(10)))} lines")
+        if not args.summary_only:
+            print(f"\nPreview (first {args.preview_chars} chars):")
+            print("-" * 40)
+            print(output[:args.preview_chars])
+            if len(output) > args.preview_chars:
+                print(f"\n... ({len(output) - args.preview_chars} more chars in {artifact_path})")
+
+
+if __name__ == "__main__":
+    main()

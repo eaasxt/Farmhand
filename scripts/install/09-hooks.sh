@@ -23,6 +23,10 @@ chmod +x "$INSTALL_HOME/.claude/hooks/"*.py
 cp "$_REPO_DIR_09/bin/bd-cleanup" "$INSTALL_HOME/.local/bin/"
 chmod +x "$INSTALL_HOME/.local/bin/bd-cleanup"
 
+# Copy obs-mask utility (observation masking for large outputs)
+cp "$_REPO_DIR_09/bin/obs-mask" "$INSTALL_HOME/.local/bin/"
+chmod +x "$INSTALL_HOME/.local/bin/obs-mask"
+
 # Install settings.json from template with __HOME__ substitution
 SETTINGS_FILE="$INSTALL_HOME/.claude/settings.json"
 TEMPLATE_FILE="$_REPO_DIR_09/config/claude-settings.json"
@@ -105,7 +109,7 @@ SETTINGS
 fi
 
 echo "  Installed hooks to $INSTALL_HOME/.claude/hooks/"
-echo "  Installed bd-cleanup to $INSTALL_HOME/.local/bin/"
+echo "  Installed bd-cleanup, obs-mask to $INSTALL_HOME/.local/bin/"
 echo "  Configured $SETTINGS_FILE"
 
 # Install git pre-commit hook for UBS scanning
