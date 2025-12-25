@@ -4,8 +4,9 @@ set -euo pipefail
 # Install enforcement hooks for Claude Code
 # This script is called by install.sh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+# Use local variables to avoid clobbering parent's SCRIPT_DIR when sourced
+_SCRIPT_DIR_09="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_DIR_09="$(dirname "$(dirname "$_SCRIPT_DIR_09")")"
 INSTALL_HOME="${INSTALL_HOME:-$HOME}"
 
 echo "Installing enforcement hooks..."
@@ -15,16 +16,16 @@ mkdir -p "$INSTALL_HOME/.claude/hooks"
 mkdir -p "$INSTALL_HOME/.local/bin"
 
 # Copy hooks
-cp "$REPO_DIR/hooks/"*.py "$INSTALL_HOME/.claude/hooks/"
+cp "$_REPO_DIR_09/hooks/"*.py "$INSTALL_HOME/.claude/hooks/"
 chmod +x "$INSTALL_HOME/.claude/hooks/"*.py
 
 # Copy bd-cleanup utility
-cp "$REPO_DIR/bin/bd-cleanup" "$INSTALL_HOME/.local/bin/"
+cp "$_REPO_DIR_09/bin/bd-cleanup" "$INSTALL_HOME/.local/bin/"
 chmod +x "$INSTALL_HOME/.local/bin/bd-cleanup"
 
 # Install settings.json from template with __HOME__ substitution
 SETTINGS_FILE="$INSTALL_HOME/.claude/settings.json"
-TEMPLATE_FILE="$REPO_DIR/config/claude-settings.json"
+TEMPLATE_FILE="$_REPO_DIR_09/config/claude-settings.json"
 
 if [ -f "$SETTINGS_FILE" ]; then
     echo "  Backing up existing settings.json"
@@ -108,7 +109,7 @@ echo "  Installed bd-cleanup to $INSTALL_HOME/.local/bin/"
 echo "  Configured $SETTINGS_FILE"
 
 # Install git pre-commit hook for UBS scanning
-GIT_HOOKS_SRC="$REPO_DIR/config/git-hooks"
+GIT_HOOKS_SRC="$_REPO_DIR_09/config/git-hooks"
 if [[ -f "$GIT_HOOKS_SRC/pre-commit" ]]; then
     # Create global git hooks directory
     mkdir -p "$INSTALL_HOME/.config/git/hooks"

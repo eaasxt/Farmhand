@@ -6,8 +6,9 @@ set -euo pipefail
 
 echo "[8/9] Configuring shell environment..."
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$SCRIPT_DIR/../.."
+# Use local variables to avoid clobbering parent's SCRIPT_DIR when sourced
+_SCRIPT_DIR_08="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT_08="$_SCRIPT_DIR_08/../.."
 
 # Install zsh if not present
 if ! command -v zsh &>/dev/null; then
@@ -82,11 +83,11 @@ fi
 
 # Install zshrc template
 echo "    Installing zshrc configuration..."
-cp "$REPO_ROOT/config/zshrc.template" "$HOME/.zshrc"
+cp "$_REPO_ROOT_08/config/zshrc.template" "$HOME/.zshrc"
 
 # Install p10k configuration
 echo "    Installing Powerlevel10k configuration..."
-cp "$REPO_ROOT/config/p10k.zsh" "$HOME/.p10k.zsh"
+cp "$_REPO_ROOT_08/config/p10k.zsh" "$HOME/.p10k.zsh"
 
 # Set zsh as default shell (optional, requires password)
 if [[ "$SHELL" != *"zsh"* ]]; then

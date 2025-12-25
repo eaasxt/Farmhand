@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Install bd (beads), bv (beads-viewer), qmd
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+# Use local variable to avoid clobbering parent's SCRIPT_DIR when sourced
+_SCRIPT_DIR_02="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_DIR_02="$(dirname "$_SCRIPT_DIR_02")"
 
 # Ensure PATH includes required directories
 export PATH="/home/linuxbrew/.linuxbrew/bin:$HOME/.bun/bin:$HOME/.local/bin:$PATH"
@@ -23,12 +24,14 @@ if ! command -v bd &>/dev/null; then
     # Source: https://github.com/steveyegge/beads
     # v0.33+ introduces molecular bonding system (bd mol, bd cook, bd ship, etc.)
     BD_VERSION="0.36.0"
-    BD_URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd_linux_amd64"
+    BD_URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/beads_${BD_VERSION}_linux_amd64.tar.gz"
 
-    if curl -fsSL -o ~/.local/bin/bd "$BD_URL" 2>/dev/null; then
+    if curl -fsSL "$BD_URL" | tar -xz -C /tmp 2>/dev/null && [[ -f /tmp/bd ]]; then
+        mv /tmp/bd ~/.local/bin/bd
         chmod +x ~/.local/bin/bd
         echo "    Downloaded bd v${BD_VERSION}"
-    elif curl -fsSL -o ~/.local/bin/bd "https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd-linux-amd64" 2>/dev/null; then
+    elif curl -fsSL -o ~/.local/bin/bd "https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd_linux_amd64" 2>/dev/null; then
+        # Fallback to old naming convention
         chmod +x ~/.local/bin/bd
         echo "    Downloaded bd v${BD_VERSION} (alt URL)"
     else
@@ -46,8 +49,8 @@ if [[ ! -f ~/.beads/beads.db ]]; then
     export BEADS_DB=~/.beads/beads.db
 
     # Copy default config
-    if [[ -f "$REPO_DIR/config/beads/config.yaml" ]]; then
-        cp "$REPO_DIR/config/beads/config.yaml" ~/.beads/config.yaml
+    if [[ -f "$_REPO_DIR_02/config/beads/config.yaml" ]]; then
+        cp "$_REPO_DIR_02/config/beads/config.yaml" ~/.beads/config.yaml
     fi
 
     # Initialize if bd is available
@@ -71,11 +74,17 @@ if ! command -v bv &>/dev/null; then
         echo "    Homebrew failed, downloading binary..."
         # v0.11.0+ adds hybrid search with graph-aware ranking
         BV_VERSION="0.11.2"
-        BV_URL="https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/beads_viewer_linux_amd64.tar.gz"
+        BV_URL="https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/bv_${BV_VERSION}_linux_amd64.tar.gz"
 
-        if curl -fsSL "$BV_URL" | tar -xz -C /tmp && mv /tmp/bv ~/.local/bin/bv; then
+        if curl -fsSL "$BV_URL" | tar -xz -C /tmp 2>/dev/null && [[ -f /tmp/bv ]]; then
+            mv /tmp/bv ~/.local/bin/bv
             chmod +x ~/.local/bin/bv
             echo "    Downloaded bv v${BV_VERSION}"
+        elif curl -fsSL "https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/beads_viewer_linux_amd64.tar.gz" | tar -xz -C /tmp 2>/dev/null && [[ -f /tmp/bv ]]; then
+            # Fallback to old naming convention
+            mv /tmp/bv ~/.local/bin/bv
+            chmod +x ~/.local/bin/bv
+            echo "    Downloaded bv v${BV_VERSION} (alt URL)"
         else
             echo "    WARNING: Could not install bv automatically."
             echo "    Please download from: https://github.com/Dicklesworthstone/beads_viewer/releases"

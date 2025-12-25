@@ -96,9 +96,9 @@ if ! command -v cass &>/dev/null; then
     rm -f "$TEMP_FILE"
 
     # Copy wrapper script from repo
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    _SCRIPT_DIR_03="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     mkdir -p ~/.local/bin
-    cp "$SCRIPT_DIR/../../bin/cass" ~/.local/bin/cass
+    cp "$_SCRIPT_DIR_03/../../bin/cass" ~/.local/bin/cass
     chmod +x ~/.local/bin/cass
 
     # Create data directory
