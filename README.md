@@ -2,7 +2,7 @@
 
 # 🚜 Farmhand
 
-### Transform a Fresh Ubuntu VPS into a Multi-Agent AI Coding Powerhouse
+### Transform a Fresh Ubuntu VM into a Multi-Agent AI Coding Powerhouse
 
 [![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
@@ -49,7 +49,7 @@
 
 ## 📋 TL;DR
 
-**Farmhand** takes a bare Ubuntu VPS and installs everything you need to run multiple AI coding agents (Claude, Codex, Gemini) that can work together without stepping on each other's toes.
+**Farmhand** takes a bare Ubuntu VM and installs everything you need to run multiple AI coding agents (Claude, Codex, Gemini) that can work together without stepping on each other's toes.
 
 ```bash
 # Install (15-20 min)
@@ -115,7 +115,7 @@ Result: No conflicts, clear ownership, happy developers
 <td width="33%">
 
 ### 👶 Beginners
-"I have a VPS and want AI agents writing code for me"
+"I have a VM and want AI agents writing code for me"
 
 → Run `./install.sh` and follow the prompts
 
@@ -181,7 +181,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           YOUR VPS (Ubuntu 22.04+)                           │
+│                            YOUR VM (Ubuntu 22.04+)                           │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
