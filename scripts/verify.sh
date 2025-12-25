@@ -244,6 +244,45 @@ else
 fi
 
 echo ""
+echo "==> File Permissions Security Audit..."
+
+# Function to check file permissions
+check_perms() {
+    local file="$1"
+    local expected="$2"
+    local name="$3"
+    printf "%-35s" "$name"
+    if [[ -e "$file" ]]; then
+        actual=$(stat -c "%a" "$file" 2>/dev/null)
+        if [[ "$actual" == "$expected" ]]; then
+            echo "[OK] ($actual)"
+            PASS=$((PASS + 1))
+        else
+            echo "[WARN] ($actual, expected $expected)"
+            WARN=$((WARN + 1))
+        fi
+    else
+        echo "[SKIP] (not present)"
+        WARN=$((WARN + 1))
+    fi
+}
+
+# Hooks directory should be 700 (owner execute only)
+check_perms ~/.claude/hooks "700" "Hooks dir (700)"
+
+# Credentials files should be 600 (owner read/write only)
+check_perms ~/.claude/.credentials.json "600" "Credentials file (600)"
+check_perms ~/mcp_agent_mail/.env "600" "MCP Agent Mail .env (600)"
+check_perms ~/.beads/beads.db "600" "Beads database (600)"
+
+# State files should be 600
+for state_file in ~/.claude/agent-state.json ~/.claude/state-*.json; do
+    if [[ -f "$state_file" ]]; then
+        check_perms "$state_file" "600" "$(basename "$state_file") (600)"
+    fi
+done
+
+echo ""
 echo "=========================================="
 echo "  Results: $PASS passed, $FAIL failed, $WARN skipped"
 echo "=========================================="

@@ -23,8 +23,19 @@ import os
 import fnmatch
 import re
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+class DatabaseUnavailableError(Exception):
+    """Raised when database cannot be accessed after retries."""
+    pass
+
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY = 0.1  # seconds (exponential backoff base)
 
 # Configuration
 AGENT_NAME_ENV = os.environ.get("AGENT_NAME")
@@ -91,50 +102,78 @@ def is_registered():
     return False
 
 def get_active_reservations():
-    """Get all active reservations from MCP Agent Mail SQLite database."""
+    """
+    Get all active reservations from MCP Agent Mail SQLite database.
+
+    Uses retry logic with exponential backoff. Raises DatabaseUnavailableError
+    if database cannot be accessed after all retries (fail-closed behavior).
+    """
     reservations = []
 
     if not MCP_DB_PATH.exists():
+        # No database = no reservations (this is fine, not an error)
         return reservations
 
-    try:
-        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    last_error = None
 
-        # Get active (non-released, non-expired) reservations
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute("""
-            SELECT
-                fr.path_pattern,
-                fr.exclusive,
-                fr.reason,
-                fr.expires_ts,
-                a.name as agent_name,
-                p.human_key as project_key
-            FROM file_reservations fr
-            JOIN agents a ON fr.agent_id = a.id
-            JOIN projects p ON fr.project_id = p.id
-            WHERE fr.released_ts IS NULL
-              AND fr.expires_ts > ?
-        """, (now,))
+    for attempt in range(MAX_RETRIES):
+        try:
+            conn = sqlite3.connect(str(MCP_DB_PATH), timeout=30.0)
+            # Enable WAL mode for better concurrency with multiple agents
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.execute('PRAGMA busy_timeout=30000')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
 
-        for row in cursor.fetchall():
-            reservations.append({
-                "agent_name": row["agent_name"],
-                "paths": [row["path_pattern"]],
-                "exclusive": bool(row["exclusive"]),
-                "reason": row["reason"],
-                "project_key": row["project_key"],
-                "expires_ts": row["expires_ts"]
-            })
+            # Get active (non-released, non-expired) reservations
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute("""
+                SELECT
+                    fr.path_pattern,
+                    fr.exclusive,
+                    fr.reason,
+                    fr.expires_ts,
+                    a.name as agent_name,
+                    p.human_key as project_key
+                FROM file_reservations fr
+                JOIN agents a ON fr.agent_id = a.id
+                JOIN projects p ON fr.project_id = p.id
+                WHERE fr.released_ts IS NULL
+                  AND fr.expires_ts > ?
+            """, (now,))
 
-        conn.close()
-    except sqlite3.Error:
-        # If database is locked or inaccessible, fail open (allow edits)
-        pass
+            for row in cursor.fetchall():
+                reservations.append({
+                    "agent_name": row["agent_name"],
+                    "paths": [row["path_pattern"]],
+                    "exclusive": bool(row["exclusive"]),
+                    "reason": row["reason"],
+                    "project_key": row["project_key"],
+                    "expires_ts": row["expires_ts"]
+                })
 
-    return reservations
+            conn.close()
+            return reservations
+
+        except sqlite3.OperationalError as e:
+            last_error = e
+            # Retry on lock/busy errors
+            if "locked" in str(e).lower() or "busy" in str(e).lower():
+                if attempt < MAX_RETRIES - 1:
+                    delay = RETRY_DELAY * (2 ** attempt)
+                    time.sleep(delay)
+                    continue
+            # Non-retryable error
+            raise DatabaseUnavailableError(f"Database error: {e}") from e
+
+        except sqlite3.Error as e:
+            # Other SQLite errors - fail closed
+            raise DatabaseUnavailableError(f"Database error: {e}") from e
+
+    # All retries exhausted
+    raise DatabaseUnavailableError(
+        f"Database unavailable after {MAX_RETRIES} retries. Last error: {last_error}"
+    )
 
 def file_matches_pattern(file_path: str, pattern: str) -> bool:
     """
@@ -246,32 +285,68 @@ def main():
 
     # Check registration
     if not is_registered():
+        home_dir = str(Path.home())
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": """BLOCKED: Agent not registered.
+                "permissionDecisionReason": f"""BLOCKED: Agent not registered.
 
-Set AGENT_NAME environment variable, or call register_agent() first.
+To fix, call register_agent() first:
 
-Option 1 (preferred): Set env var before launching agent:
-  export AGENT_NAME="YourAgentName"
-  claude
+```python
+register_agent(
+    project_key="{home_dir}",
+    program="claude-code",
+    model="opus-4.5"
+)
+```
 
-Option 2: Register via MCP:
-  register_agent(project_key="$HOME", program="claude-code", model="opus-4.5")
+Or set AGENT_NAME before launching:
+```bash
+export AGENT_NAME="YourAgentName"
+claude
+```
 
-See ~/CLAUDE.md for details."""
+Quick recovery (if registered but state lost):
+```bash
+bd-cleanup --reset-state
+```"""
             }
         }
         print(json.dumps(output))
         sys.exit(0)
 
     agent_name = get_agent_name()
-    reservations = get_active_reservations()
+
+    # Try to get reservations - fail closed if database unavailable
+    try:
+        reservations = get_active_reservations()
+    except DatabaseUnavailableError as e:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"""BLOCKED: Cannot verify file reservations.
+
+Database temporarily unavailable: {e}
+
+This is a safety measure to prevent conflicting edits.
+
+Options:
+1. Wait a moment and retry
+2. Check MCP Agent Mail service: sudo systemctl status mcp-agent-mail
+3. Run bd-cleanup to check for issues
+4. Set FARMHAND_SKIP_ENFORCEMENT=1 to bypass (use with caution)"""
+            }
+        }
+        print(json.dumps(output))
+        sys.exit(0)
+
     is_reserved, blocking_agent = check_file_reserved(file_path, agent_name, reservations)
 
     if blocking_agent:
+        home_dir = str(Path.home())
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -282,13 +357,35 @@ File: {file_path}
 Reserved by: {blocking_agent}
 Your agent: {agent_name}
 
-Wait for {blocking_agent} to release, or coordinate via Agent Mail."""
+Options:
+
+1. Request access via Agent Mail:
+```python
+send_message(
+    project_key="{home_dir}",
+    sender_name="{agent_name}",
+    to=["{blocking_agent}"],
+    subject="File access request",
+    body_md="Need access to {os.path.basename(file_path)}. Can you release when done?"
+)
+```
+
+2. Check if reservation is stale:
+```bash
+bd-cleanup --list
+```
+
+3. Work on a different file while waiting"""
             }
         }
         print(json.dumps(output))
         sys.exit(0)
 
     if not is_reserved:
+        home_dir = str(Path.home())
+        # Suggest a glob pattern for the directory
+        file_dir = os.path.dirname(file_path)
+        suggested_pattern = f"{file_dir}/**"
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -298,15 +395,31 @@ Wait for {blocking_agent} to release, or coordinate via Agent Mail."""
 File: {file_path}
 Agent: {agent_name}
 
-Reserve before editing:
+Copy-paste to reserve:
+```python
 file_reservation_paths(
-    project_key="$HOME",
+    project_key="{home_dir}",
+    agent_name="{agent_name}",
+    paths=["{suggested_pattern}"],
+    ttl_seconds=3600,
+    exclusive=True,
+    reason="<issue-id>"
+)
+```
+
+Or reserve just this file:
+```python
+file_reservation_paths(
+    project_key="{home_dir}",
     agent_name="{agent_name}",
     paths=["{file_path}"],
     ttl_seconds=3600,
     exclusive=True,
     reason="<issue-id>"
-)"""
+)
+```
+
+Tip: Replace <issue-id> with your bd issue ID (e.g., "ubuntu-42")"""
             }
         }
         print(json.dumps(output))

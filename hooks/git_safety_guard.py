@@ -60,8 +60,11 @@ DESTRUCTIVE_PATTERNS = [
     (r"git clean\b.*(?:-[a-z]*f|--force)", "Permanently removes untracked files"),
 
     # Git: Force push
-    # Matches --force, -f, --force-with-lease, and refspec with + (e.g. +main)
-    (r"git push\b.*(?:--force|-f\b|\+\w+)", "Rewrites remote history, potentially destroying work"),
+    # Matches --force, --force-with-lease, -f, and refspec with + prefix (e.g. +main)
+    # Note: --force-with-lease is safer but still rewrites history
+    (r"git push\b.*(?:--force(?:-with-lease)?|-f\b)", "Rewrites remote history, potentially destroying work"),
+    # Refspec with + prefix (e.g., git push origin +main)
+    (r"git push\b[^|;&]*\+\w+", "Force push via + refspec prefix, rewrites remote history"),
 
     # Git: Dangerous branch operations
     (r"git branch -D", "Force-deletes branch bypassing merge safety checks"),

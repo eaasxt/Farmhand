@@ -37,7 +37,10 @@ def temp_db(tmp_path):
     import sqlite3
 
     db_path = tmp_path / "storage.sqlite3"
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    # Enable WAL mode for consistency with production code
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=30000')
     cursor = conn.cursor()
 
     # Create minimal schema matching MCP Agent Mail
@@ -62,6 +65,7 @@ def temp_db(tmp_path):
     cursor.execute("""
         CREATE TABLE file_reservations (
             id INTEGER PRIMARY KEY,
+            project_id INTEGER,
             agent_id INTEGER,
             path_pattern TEXT,
             exclusive INTEGER,
@@ -69,6 +73,7 @@ def temp_db(tmp_path):
             created_ts TEXT,
             expires_ts TEXT,
             released_ts TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id),
             FOREIGN KEY (agent_id) REFERENCES agents(id)
         )
     """)

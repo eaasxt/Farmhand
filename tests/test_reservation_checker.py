@@ -25,7 +25,9 @@ class TestReservationChecker:
     @pytest.fixture
     def setup_db_with_agent(self, temp_db):
         """Set up database with a registered agent."""
-        conn = sqlite3.connect(str(temp_db))
+        conn = sqlite3.connect(str(temp_db), timeout=30.0)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         # Insert project
@@ -51,17 +53,24 @@ class TestReservationChecker:
     def setup_db_with_reservation(self, setup_db_with_agent):
         """Set up database with agent and file reservation."""
         db_info = setup_db_with_agent
-        conn = sqlite3.connect(str(db_info["db_path"]))
+        conn = sqlite3.connect(str(db_info["db_path"]), timeout=30.0)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
-        # Add reservation
+        # Add reservation (need project_id from setup_db_with_agent)
         now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
+
+        # Get the project_id (first project created)
+        cursor.execute("SELECT id FROM projects LIMIT 1")
+        project_id = cursor.fetchone()[0]
+
         cursor.execute(
             """INSERT INTO file_reservations
-               (agent_id, path_pattern, exclusive, reason, created_ts, expires_ts, released_ts)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (db_info["agent_id"], "/home/testuser/project/**", 1, "test-123",
+               (project_id, agent_id, path_pattern, exclusive, reason, created_ts, expires_ts, released_ts)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (project_id, db_info["agent_id"], "/home/testuser/project/**", 1, "test-123",
              now.isoformat(), expires.isoformat(), None)
         )
 

@@ -72,7 +72,10 @@ def check_orphaned_reservations():
         return orphaned
 
     try:
-        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=30.0)
+        # Enable WAL mode for better concurrency with multiple agents
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -109,8 +112,9 @@ def check_orphaned_reservations():
             })
 
         conn.close()
-    except sqlite3.Error:
-        pass
+    except sqlite3.Error as e:
+        # Return a special marker indicating database issue
+        return [{"agent": "DATABASE_ERROR", "paths": [str(e)], "age_hours": 0}]
 
     return orphaned
 
@@ -145,11 +149,18 @@ def main():
         context_parts.append("")
 
     if orphaned:
-        context_parts.append("WARNING: Found potentially orphaned file reservations:")
-        for orph in orphaned[:5]:  # Limit to 5
-            context_parts.append(f"  - {orph['agent']}: {orph['paths']} (age: {orph['age_hours']}h)")
-        context_parts.append("Run `bd-cleanup` to review and release if needed.")
-        context_parts.append("")
+        # Check for database error marker
+        if len(orphaned) == 1 and orphaned[0].get("agent") == "DATABASE_ERROR":
+            context_parts.append("WARNING: Could not check file reservations (database unavailable)")
+            context_parts.append(f"  Error: {orphaned[0]['paths'][0] if orphaned[0]['paths'] else 'unknown'}")
+            context_parts.append("  Check: sudo systemctl status mcp-agent-mail")
+            context_parts.append("")
+        else:
+            context_parts.append("WARNING: Found potentially orphaned file reservations:")
+            for orph in orphaned[:5]:  # Limit to 5
+                context_parts.append(f"  - {orph['agent']}: {orph['paths']} (age: {orph['age_hours']}h)")
+            context_parts.append("Run `bd-cleanup` to review and release if needed.")
+            context_parts.append("")
 
     context_parts.append("WORKFLOW REMINDER: Read ~/CLAUDE.md before starting work.")
     context_parts.append("Required sequence: bd ready -> register_agent -> file_reservation_paths -> work -> release -> bd close")

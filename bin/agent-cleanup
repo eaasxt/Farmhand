@@ -169,7 +169,10 @@ def main():
         sys.exit(1)
     
     try:
-        conn = sqlite3.connect(str(MCP_DB))
+        conn = sqlite3.connect(str(MCP_DB), timeout=30.0)
+        # Enable WAL mode for better concurrency with multiple agents
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
     except sqlite3.Error as e:
         print(f"Failed to connect to database: {e}")
         sys.exit(1)

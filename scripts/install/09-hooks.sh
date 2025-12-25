@@ -122,4 +122,30 @@ if [[ -f "$GIT_HOOKS_SRC/pre-commit" ]]; then
     echo "  Configured global git hooks path"
 fi
 
+# Set secure file permissions
+echo "  Setting secure file permissions..."
+
+# Hooks directory - executable by owner only
+chmod 700 "$INSTALL_HOME/.claude/hooks"
+
+# State files - read/write by owner only
+if [ -f "$INSTALL_HOME/.claude/agent-state.json" ]; then
+    chmod 600 "$INSTALL_HOME/.claude/agent-state.json"
+fi
+
+# Credentials file (if exists) - read/write by owner only
+if [ -f "$INSTALL_HOME/.claude/.credentials.json" ]; then
+    chmod 600 "$INSTALL_HOME/.claude/.credentials.json"
+fi
+
+# MCP Agent Mail env file (if exists)
+if [ -f "$INSTALL_HOME/mcp_agent_mail/.env" ]; then
+    chmod 600 "$INSTALL_HOME/mcp_agent_mail/.env"
+fi
+
+# Beads database (if exists)
+if [ -f "$INSTALL_HOME/.beads/beads.db" ]; then
+    chmod 600 "$INSTALL_HOME/.beads/beads.db"
+fi
+
 echo "Enforcement hooks installed."

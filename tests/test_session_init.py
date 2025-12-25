@@ -255,7 +255,9 @@ class TestOrphanedReservationDetection:
         # Set up database with old reservation
         import sqlite3
 
-        conn = sqlite3.connect(str(temp_db))
+        conn = sqlite3.connect(str(temp_db), timeout=30.0)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         # Insert project and agent
@@ -277,9 +279,9 @@ class TestOrphanedReservationDetection:
 
         cursor.execute(
             """INSERT INTO file_reservations
-               (agent_id, path_pattern, exclusive, reason, created_ts, expires_ts, released_ts)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (agent_id, "/stale/path/**", 1, "old-task",
+               (project_id, agent_id, path_pattern, exclusive, reason, created_ts, expires_ts, released_ts)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (project_id, agent_id, "/stale/path/**", 1, "old-task",
              old_time.isoformat(), future_expires.isoformat(), None)
         )
 

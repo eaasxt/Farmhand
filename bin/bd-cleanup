@@ -11,6 +11,7 @@ Usage:
   bd-cleanup --force            # Force cleanup all stale items
   bd-cleanup --release-all      # Release all reservations
   bd-cleanup --reset-state      # Reset local agent state
+  bd-cleanup --clean-locks      # Clean up stale lock files only
 """
 
 import argparse
@@ -43,7 +44,10 @@ def get_orphaned_reservations(stale_hours=4):
         return orphaned
 
     try:
-        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=30.0)
+        # Enable WAL mode for better concurrency with multiple agents
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -199,9 +203,58 @@ def list_items():
         print("  (none)")
     print()
 
+    # Stale lock files
+    stale_locks = get_stale_lock_files()
+    print(f"STALE LOCK FILES: ({len(stale_locks)} total)")
+    if stale_locks:
+        for lock_info in stale_locks:
+            print(f"  {lock_info['path'].name}: {lock_info['age_hours']}h old")
+    else:
+        print("  (none)")
+    print()
+
+def get_stale_lock_files(stale_hours=1):
+    """Find lock files that are older than stale_hours."""
+    stale_locks = []
+    if not STATE_DIR.exists():
+        return stale_locks
+
+    cutoff = time.time() - (stale_hours * 3600)
+    for lock_file in STATE_DIR.glob("*.lock"):
+        try:
+            mtime = lock_file.stat().st_mtime
+            if mtime < cutoff:
+                age_hours = (time.time() - mtime) / 3600
+                stale_locks.append({
+                    "path": lock_file,
+                    "age_hours": round(age_hours, 1)
+                })
+        except OSError:
+            pass  # File may have been deleted
+
+    return stale_locks
+
+
+def cleanup_stale_locks(stale_hours=1):
+    """Remove stale lock files."""
+    stale_locks = get_stale_lock_files(stale_hours)
+    removed = 0
+    for lock_info in stale_locks:
+        try:
+            lock_info["path"].unlink()
+            removed += 1
+            print(f"  Removed stale lock: {lock_info['path'].name} ({lock_info['age_hours']}h old)")
+        except OSError as e:
+            print(f"  Failed to remove {lock_info['path'].name}: {e}")
+    return removed
+
+
 def reset_state():
     """Reset local agent state (only for this agent, not others)."""
     state_file = get_state_file()
+    lock_file = state_file.with_suffix('.lock')
+
+    # Remove state file
     if state_file.exists():
         os.remove(state_file)
         agent_id = AGENT_NAME or "default"
@@ -209,10 +262,21 @@ def reset_state():
     else:
         print("No local state to reset.")
 
+    # Also remove associated lock file
+    if lock_file.exists():
+        try:
+            lock_file.unlink()
+            print(f"Lock file removed: {lock_file.name}")
+        except OSError:
+            pass
+
 def release_reservation_by_id(res_id):
     """Mark a reservation as released in the SQLite database."""
     try:
-        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=30.0)
+        # Enable WAL mode for better concurrency with multiple agents
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
         cursor.execute(
@@ -232,6 +296,11 @@ def force_cleanup(stale_hours=4):
 
     # Reset local state
     reset_state()
+
+    # Clean up stale lock files
+    locks_removed = cleanup_stale_locks()
+    if locks_removed:
+        print(f"  Removed {locks_removed} stale lock file(s).")
 
     # Release stale/expired reservations in database
     orphaned = get_orphaned_reservations(stale_hours)
@@ -270,10 +339,11 @@ def interactive_cleanup():
     print("  1. Reset local agent state")
     print("  2. Release expired/stale reservations")
     print("  3. Release ALL reservations (nuclear)")
-    print("  4. Exit")
+    print("  4. Clean up stale lock files only")
+    print("  5. Exit")
     print()
 
-    choice = input("Select option (1-4): ").strip()
+    choice = input("Select option (1-5): ").strip()
 
     if choice == "1":
         reset_state()
@@ -282,6 +352,12 @@ def interactive_cleanup():
     elif choice == "3":
         release_all()
     elif choice == "4":
+        removed = cleanup_stale_locks()
+        if removed:
+            print(f"Removed {removed} stale lock file(s).")
+        else:
+            print("No stale lock files found.")
+    elif choice == "5":
         print("Exiting.")
     else:
         print("Invalid option.")
@@ -292,6 +368,7 @@ def main():
     parser.add_argument("--force", "-f", action="store_true", help="Force cleanup stale items")
     parser.add_argument("--release-all", action="store_true", help="Release all reservations")
     parser.add_argument("--reset-state", action="store_true", help="Reset local agent state")
+    parser.add_argument("--clean-locks", action="store_true", help="Clean up stale lock files only")
     parser.add_argument("--stale-hours", type=int, default=4, help="Hours before considered stale")
 
     args = parser.parse_args()
@@ -304,6 +381,12 @@ def main():
         release_all()
     elif args.reset_state:
         reset_state()
+    elif args.clean_locks:
+        removed = cleanup_stale_locks()
+        if removed:
+            print(f"Removed {removed} stale lock file(s).")
+        else:
+            print("No stale lock files found.")
     else:
         interactive_cleanup()
 

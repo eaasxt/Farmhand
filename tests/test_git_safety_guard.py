@@ -72,6 +72,34 @@ class TestGitSafetyGuard:
         assert exit_code == 0
         assert output.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
 
+    def test_blocks_git_push_force_with_lease(self, hook_path):
+        """git push --force-with-lease should be blocked (still rewrites history)."""
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "git push --force-with-lease origin main"}
+        }
+
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+
+        assert exit_code == 0
+        assert output.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+    def test_blocks_git_push_plus_refspec(self, hook_path):
+        """git push origin +main should be blocked (+ prefix force push)."""
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "git push origin +main"}
+        }
+
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+
+        assert exit_code == 0
+        assert output.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+        assert "refspec" in output.get("hookSpecificOutput", {}).get("permissionDecisionReason", "").lower() or \
+               "remote history" in output.get("hookSpecificOutput", {}).get("permissionDecisionReason", "").lower()
+
     def test_blocks_git_branch_force_delete(self, hook_path):
         """git branch -D should be blocked."""
         input_data = {

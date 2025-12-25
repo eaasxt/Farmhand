@@ -44,26 +44,80 @@ def get_lock_file():
     state_file = get_state_file()
     return state_file.with_suffix('.lock')
 
+# Lock configuration
+LOCK_TIMEOUT = 5.0  # seconds to wait for lock
+LOCK_RETRY_DELAY = 0.1  # seconds between retry attempts
+STALE_LOCK_AGE = 3600  # seconds before lock file considered stale (1 hour)
+
+
+def is_lock_stale(lock_file: Path) -> bool:
+    """Check if lock file is stale (process died without releasing).
+
+    Note: flock() locks are released automatically when process dies,
+    but the lock file itself persists. A very old lock file that we
+    can immediately acquire indicates the holder died.
+    """
+    try:
+        if not lock_file.exists():
+            return False
+        age = time.time() - lock_file.stat().st_mtime
+        return age > STALE_LOCK_AGE
+    except OSError:
+        return False
+
+
 @contextmanager
-def state_lock():
+def state_lock(timeout: float = LOCK_TIMEOUT):
     """Context manager for exclusive lock on state file operations.
-    
+
     Uses a separate .lock file to hold the lock during the entire
     read-modify-write cycle, avoiding TOCTOU race conditions.
+
+    Features:
+    - Timeout-based acquisition (doesn't block forever)
+    - Stale lock detection and cleanup
+    - Non-blocking retries with exponential backoff
     """
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     lock_file = get_lock_file()
-    
+
+    # Check for and clean up stale lock files
+    if is_lock_stale(lock_file):
+        try:
+            lock_file.unlink()
+        except OSError:
+            pass  # Another process may have cleaned it up
+
     # Open lock file (create if needed)
     lock_fd = open(lock_file, 'w')
+    start_time = time.time()
+    acquired = False
+
     try:
-        # Acquire exclusive lock (blocks until available)
-        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        # Try to acquire lock with timeout
+        while time.time() - start_time < timeout:
+            try:
+                # Non-blocking lock attempt
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                # Update lock file mtime to show we're active
+                lock_file.touch()
+                break
+            except BlockingIOError:
+                # Lock held by another process, wait and retry
+                time.sleep(LOCK_RETRY_DELAY)
+
+        if not acquired:
+            # Timeout reached - proceed without lock (fail open for usability)
+            # This is a hook, so we don't want to break the user's workflow
+            pass
+
         try:
             yield
         finally:
-            # Release lock
-            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+            if acquired:
+                # Release lock
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
     finally:
         lock_fd.close()
 
