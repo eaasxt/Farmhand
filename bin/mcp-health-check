@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# MCP Agent Mail Health Check
-# ---------------------------
-# Checks if MCP Agent Mail server is responding.
-# Restarts the service if it fails 3 consecutive times.
+# MCP Agent Mail Health Check + Stale Reservation Cleanup
+# --------------------------------------------------------
+# 1. Checks if MCP Agent Mail server is responding
+# 2. Restarts the service if it fails 3 consecutive times
+# 3. Cleans up expired/stale reservations from the database
 #
 # Usage: Called by systemd timer (mcp-health-check.timer)
 #        Or manually: mcp-health-check
@@ -15,6 +16,8 @@ ENDPOINT="${MCP_AGENT_MAIL_URL:-http://127.0.0.1:8765/mcp/}"
 MAX_RETRIES=3
 RETRY_DELAY=2
 STATE_FILE="/tmp/mcp-health-check.failures"
+DB_PATH="${HOME}/mcp_agent_mail/storage.sqlite3"
+STALE_HOURS=4  # Reservations older than this are considered stale
 
 log() {
     logger -t "mcp-health-check" "$1"
@@ -44,6 +47,46 @@ check_health() {
     return 1
 }
 
+# Clean up expired and stale reservations from the database
+cleanup_stale_reservations() {
+    if [[ ! -f "$DB_PATH" ]]; then
+        return 0
+    fi
+
+    # Get current UTC timestamp
+    local now
+    now=$(date -u '+%Y-%m-%d %H:%M:%S')
+    
+    # Calculate stale threshold (STALE_HOURS ago)
+    local stale_threshold
+    stale_threshold=$(date -u -d "${STALE_HOURS} hours ago" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || \
+                      date -u -v-${STALE_HOURS}H '+%Y-%m-%d %H:%M:%S' 2>/dev/null || \
+                      echo "")
+    
+    if [[ -z "$stale_threshold" ]]; then
+        # Fallback if date manipulation fails
+        return 0
+    fi
+
+    # Count and delete expired reservations (past expires_ts)
+    local expired_count
+    expired_count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM file_reservations WHERE released_ts IS NULL AND expires_ts < '$now';" 2>/dev/null || echo "0")
+    
+    if [[ "$expired_count" -gt 0 ]]; then
+        sqlite3 "$DB_PATH" "UPDATE file_reservations SET released_ts = '$now' WHERE released_ts IS NULL AND expires_ts < '$now';" 2>/dev/null
+        log "Cleaned up $expired_count expired reservations"
+    fi
+
+    # Count and delete stale reservations (created > STALE_HOURS ago and not released)
+    local stale_count
+    stale_count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM file_reservations WHERE released_ts IS NULL AND created_ts < '$stale_threshold';" 2>/dev/null || echo "0")
+    
+    if [[ "$stale_count" -gt 0 ]]; then
+        sqlite3 "$DB_PATH" "UPDATE file_reservations SET released_ts = '$now' WHERE released_ts IS NULL AND created_ts < '$stale_threshold';" 2>/dev/null
+        log "Cleaned up $stale_count stale reservations (older than ${STALE_HOURS}h)"
+    fi
+}
+
 # Main health check logic
 main() {
     local failures
@@ -56,6 +99,10 @@ main() {
                 log "MCP Agent Mail recovered after $failures failures"
             fi
             set_failure_count 0
+            
+            # Run cleanup on successful health check
+            cleanup_stale_reservations
+            
             exit 0
         fi
 
