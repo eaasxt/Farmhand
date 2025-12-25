@@ -101,13 +101,39 @@ This matches the logic in `mcp-state-tracker.py` for consistency.
 
 ### mcp-state-tracker.py
 
-**Trigger:** MCP Agent Mail tool calls (PostToolUse)
+**Trigger:** MCP Agent Mail tool calls (PostToolUse), Read/Write/Edit operations
 
 **Tracked tools:**
 - `register_agent` → Sets `registered=true`, stores agent name
 - `file_reservation_paths` → Tracks reservations locally
 - `release_file_reservations` → Clears local reservation tracking
 - `macro_start_session` → Combines register + reserve
+
+**Artifact Trail Tracking (v2.2.2+):**
+
+The hook now tracks file operations for improved handoff quality:
+- `Write` → Adds path to `files_created[]`
+- `Edit` → Adds path to `files_modified[]`
+- `Read` → Adds path to `files_read[]` (capped at 50 most recent)
+
+State file structure:
+```json
+{
+  "registered": true,
+  "agent_name": "BlueLake",
+  "reservations": ["src/**"],
+  "issue_id": "bd-123",
+  "session_start": 1735100000.0,
+  "files_created": ["src/new_file.py"],
+  "files_modified": ["src/existing.py"],
+  "files_read": ["src/config.py", "tests/test_api.py"]
+}
+```
+
+This artifact trail enables:
+- Better session handoffs with concrete file lists
+- Degradation probes in `/calibrate` to verify work
+- Audit trails for multi-agent coordination
 
 **State file:** Uses same logic as reservation-checker:
 - Multi-agent: `~/.claude/state-{AGENT_NAME}.json`
@@ -284,6 +310,49 @@ bd-cleanup --list       # View orphaned items
 bd-cleanup --force      # Release stale reservations
 bd-cleanup --reset-state # Reset local state only
 ```
+
+## Utilities
+
+### obs-mask (Observation Masking)
+
+A context-engineering utility that stores large tool outputs to session artifacts and returns summaries, reducing context consumption by 60-80%.
+
+**Installation:** `~/.local/bin/obs-mask`
+
+**Usage:**
+```bash
+# Pipe any command through obs-mask
+ubs . | obs-mask --label "ubs-scan"
+
+# With custom threshold (tokens)
+some-command | obs-mask --threshold 1000 --label "output"
+
+# JSON output for programmatic use
+some-command | obs-mask --json
+
+# Summary only (no preview)
+some-command | obs-mask --summary-only
+```
+
+**Output when masked:**
+```
+[MASKED] Large output stored to: ~/.claude/sessions/<id>/artifacts/ubs-scan-20251225.txt
+Summary: 10,234 chars (~2,558 tokens)
+Preview (first 500 chars):
+...
+```
+
+**Options:**
+- `--threshold N` - Token threshold before masking (default: 2000)
+- `--label NAME` - Label for the artifact file
+- `--session ID` - Custom session ID (default: generates timestamp-based)
+- `--preview-chars N` - Characters to show in preview (default: 500)
+- `--summary-only` - No preview, just path and summary
+- `--json` - Output structured JSON
+
+**Session artifacts location:** `~/.claude/sessions/<session-id>/artifacts/`
+
+---
 
 ## Extending Hooks
 

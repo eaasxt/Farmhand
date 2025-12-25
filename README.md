@@ -27,10 +27,10 @@
 
 ### 🚜 Transform your Ubuntu VM into an AI Coding Powerhouse 🌾
 
-[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://github.com/eaasxt/Farmhand)
+[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-30%2B-purple.svg)](#-what-gets-installed)
 
 *One command. 30+ tools. Multiple AI agents working in harmony.*
@@ -310,6 +310,13 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search past agent session transcripts | [README](https://github.com/Dicklesworthstone/coding_agent_session_search#readme) |
 | **[slb](https://github.com/Dicklesworthstone/simultaneous_launch_button)** | Two-person rule for dangerous commands | [README](https://github.com/Dicklesworthstone/simultaneous_launch_button#readme) |
 
+#### Context Engineering Utilities
+
+| Tool | Purpose |
+|------|---------|
+| **obs-mask** | Masks large tool outputs (>2000 tokens) to session artifacts, returns summaries |
+| **bd-cleanup** | Recovery utility for orphaned reservations and stale state |
+
 #### Cloud CLIs
 
 | Tool | Purpose |
@@ -369,7 +376,7 @@ The magic of Farmhand is that agents **can't cheat**. Hooks intercept tool calls
 | `todowrite-interceptor.py` | `TodoWrite` | Blocks and suggests `bd` commands |
 | `reservation-checker.py` | `Edit`, `Write` | Requires registration + reservation |
 | `git_safety_guard.py` | `Bash` | Blocks destructive git commands |
-| `mcp-state-tracker.py` | MCP calls | Tracks agent state after MCP operations |
+| `mcp-state-tracker.py` | MCP calls, Read/Write/Edit | Tracks agent state + artifact trail (files created/modified/read) |
 | `session-init.py` | Session start | Cleans stale state, shows reminders |
 
 ### Escape Hatch
@@ -483,8 +490,9 @@ Built on [50+ research papers](https://github.com/Mburdo/knowledge_and_vibes), t
 ~/.claude/
 ├── settings.json          # Hook configuration
 ├── hooks/                 # Python enforcement hooks
-├── agent-state.json       # Current agent state
-└── state-{AGENT_NAME}.json # Per-agent state files
+├── agent-state.json       # Current agent state (with artifact trail)
+├── state-{AGENT_NAME}.json # Per-agent state files
+└── sessions/              # Session artifacts (obs-mask outputs)
 
 ~/.beads/
 └── beads.db              # Task graph database
@@ -1136,11 +1144,12 @@ The hook system has comprehensive test coverage:
 cd ~/Farmhand
 python3 -m pytest tests/ -v
 
-# 92 tests covering:
+# 120 tests covering:
 # - TodoWrite interception
 # - Git safety guards
 # - Reservation enforcement
-# - State tracking
+# - State tracking with artifact trail
+# - Observation masking (obs-mask)
 # - Integration workflows
 ```
 
@@ -1155,6 +1164,7 @@ python3 -m pytest tests/ -v
 | [docs/hooks.md](docs/hooks.md) | Hook system deep-dive |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues & fixes |
 | [docs/upgrade-from-v1.md](docs/upgrade-from-v1.md) | Migration guide |
+| [docs/agent-mail-schemas.md](docs/agent-mail-schemas.md) | Structured JSON schemas for multi-agent coordination |
 | [config/CLAUDE.md](config/CLAUDE.md) | Agent workflow instructions (700+ lines) |
 
 ---
@@ -1199,6 +1209,7 @@ python3 -m pytest tests/ -v
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **v2.2.2** | Dec 2025 | Context engineering: artifact trail, obs-mask, structured Agent Mail schemas, degradation probes |
 | **v2.2.0** | Dec 2025 | bd v0.36 molecular bonding, UBS v5.0 + ast-grep, CASS v0.1.36, NTM v1.2 |
 | **v2.1.0** | Dec 2025 | Knowledge & Vibes workflow, 92 tests, hook enforcement, escape hatch |
 | **v2.0.0** | Nov 2025 | Dicklesworthstone stack, MCP Agent Mail, multi-agent coordination |
@@ -1206,6 +1217,15 @@ python3 -m pytest tests/ -v
 
 <details>
 <summary>Detailed changelog</summary>
+
+### v2.2.2 (December 2025)
+- **Context Engineering Features** from research analysis:
+  - **Artifact Trail Tracking**: mcp-state-tracker.py now tracks files_created, files_modified, files_read
+  - **obs-mask**: New utility to mask large tool outputs (>2000 tokens) to session artifacts
+  - **Agent Mail Schemas**: Structured JSON schemas for CLAIMED, CLOSED, BLOCKED, HANDOFF messages
+  - **Degradation Probes**: New probes agent in /calibrate skill for detecting context degradation
+- 120 tests (up from 92) with new coverage for artifact tracking and observation masking
+- Improved multi-agent handoff quality through structured messaging
 
 ### v2.2.0 (December 2025)
 - **Beads v0.36.0**: Molecular bonding system (`bd mol`, `bd cook`, `bd ship`)
@@ -1262,7 +1282,7 @@ bd create --title="Add feature X" --type=feature
 # (register, reserve files, edit, test, commit)
 
 # 4. Run quality gates
-python3 -m pytest tests/ -v          # 92 tests must pass
+python3 -m pytest tests/ -v          # 120 tests must pass
 ubs $(git diff --name-only)           # Security scan
 
 # 5. Submit PR
