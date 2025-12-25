@@ -50,6 +50,14 @@ cp -r "$K_AND_V/.claude/rules/"* ~/.claude/rules/
 echo "    Installing 8 templates..."
 cp -r "$K_AND_V/templates/"* ~/templates/
 
+# Copy AGENTS.md template (for multi-agent coordination)
+echo "    Installing AGENTS.md template..."
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+if [[ -f "$REPO_ROOT/config/AGENTS.md" ]]; then
+    cp "$REPO_ROOT/config/AGENTS.md" ~/templates/AGENTS.md
+    echo "    Template at ~/templates/AGENTS.md (copy to project roots)"
+fi
+
 # Copy protocol documentation
 echo "    Installing protocol documentation..."
 if [[ -d "$K_AND_V/docs/workflow" ]]; then

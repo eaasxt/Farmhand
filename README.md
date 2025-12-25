@@ -1143,23 +1143,24 @@ python3 -m pytest tests/ -v
 
 ### Core
 
-| Tool | Repository | Author |
-|------|------------|--------|
-| bd (Beads) | [steveyegge/beads](https://github.com/steveyegge/beads) | Steve Yegge |
-| bv (Beads Viewer) | [Dicklesworthstone/beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) | Jeffrey Emanuel |
-| qmd | [tobi/qmd](https://github.com/tobi/qmd) | Tobias Lütke |
-| MCP Agent Mail | [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail) | Jeffrey Emanuel |
+| Tool | Version | Repository | Author |
+|------|---------|------------|--------|
+| bd (Beads) | v0.36.0 | [steveyegge/beads](https://github.com/steveyegge/beads) | Steve Yegge |
+| bv (Beads Viewer) | v0.11.2 | [Dicklesworthstone/beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) | Jeffrey Emanuel |
+| qmd | latest | [tobi/qmd](https://github.com/tobi/qmd) | Tobias Lütke |
+| MCP Agent Mail | latest | [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail) | Jeffrey Emanuel |
 
 ### Dicklesworthstone Stack
 
-| Tool | Repository |
-|------|------------|
-| ubs | [Dicklesworthstone/ultimate_bug_scanner](https://github.com/Dicklesworthstone/ultimate_bug_scanner) |
-| ntm | [Dicklesworthstone/ntm](https://github.com/Dicklesworthstone/ntm) |
-| cm | [Dicklesworthstone/cass_memory_system](https://github.com/Dicklesworthstone/cass_memory_system) |
-| caam | [Dicklesworthstone/coding_agent_account_manager](https://github.com/Dicklesworthstone/coding_agent_account_manager) |
-| cass | [Dicklesworthstone/coding_agent_session_search](https://github.com/Dicklesworthstone/coding_agent_session_search) |
-| slb | [Dicklesworthstone/simultaneous_launch_button](https://github.com/Dicklesworthstone/simultaneous_launch_button) |
+| Tool | Version | Repository |
+|------|---------|------------|
+| ubs | v5.0.0 | [Dicklesworthstone/ultimate_bug_scanner](https://github.com/Dicklesworthstone/ultimate_bug_scanner) |
+| ast-grep | required | [ast-grep/ast-grep](https://github.com/ast-grep/ast-grep) (UBS dependency) |
+| ntm | v1.2.0 | [Dicklesworthstone/ntm](https://github.com/Dicklesworthstone/ntm) |
+| cm | v0.2.0 | [Dicklesworthstone/cass_memory_system](https://github.com/Dicklesworthstone/cass_memory_system) |
+| caam | latest | [Dicklesworthstone/coding_agent_account_manager](https://github.com/Dicklesworthstone/coding_agent_account_manager) |
+| cass | v0.1.36 | [Dicklesworthstone/coding_agent_session_search](https://github.com/Dicklesworthstone/coding_agent_session_search) |
+| slb | latest | [Dicklesworthstone/simultaneous_launch_button](https://github.com/Dicklesworthstone/simultaneous_launch_button) |
 
 ### Workflow
 
@@ -1175,12 +1176,23 @@ python3 -m pytest tests/ -v
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **v2.2.0** | Dec 2025 | bd v0.36 molecular bonding, UBS v5.0 + ast-grep, CASS v0.1.36, NTM v1.2 |
 | **v2.1.0** | Dec 2025 | Knowledge & Vibes workflow, 92 tests, hook enforcement, escape hatch |
 | **v2.0.0** | Nov 2025 | Dicklesworthstone stack, MCP Agent Mail, multi-agent coordination |
 | **v1.x** | Oct 2025 | Basic VM bootstrap with bd, bv, qmd, Ollama |
 
 <details>
 <summary>Detailed changelog</summary>
+
+### v2.2.0 (December 2025)
+- **Beads v0.36.0**: Molecular bonding system (`bd mol`, `bd cook`, `bd ship`)
+- **UBS v5.0.0**: ast-grep now REQUIRED for JavaScript/TypeScript scanning
+- **ast-grep**: Added as mandatory dependency
+- **CASS v0.1.36**: New connectors (Pi-Agent, Cursor, ChatGPT Desktop), export/expand/timeline commands
+- **NTM v1.2.0**: Dashboard 360-View, file change tracking, CASS integration
+- **bv v0.11.2**: Hybrid search with graph-aware ranking
+- **ACFS backports**: Claude path handling, Supabase reliability, OhMyZsh pinning
+- Expanded `verify.sh` health checks
 
 ### v2.1.0 (December 2025)
 - Knowledge & Vibes workflow layer (18 skills, 7 commands, 19 protocols)

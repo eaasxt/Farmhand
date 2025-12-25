@@ -57,6 +57,7 @@ check "qmd" "command -v qmd"
 
 echo ""
 echo "==> Dicklesworthstone Stack..."
+check "ast-grep (UBS JS/TS)" "command -v ast-grep || command -v sg"
 check "ubs (bug scanner)" "command -v ubs"
 check "ntm (tmux manager)" "command -v ntm"
 check "cm (cass memory)" "command -v cm"
@@ -197,6 +198,48 @@ if command -v claude &>/dev/null; then
     claude --version 2>&1 | head -1 || echo "[UNKNOWN]"
 else
     echo "[NOT INSTALLED]"
+fi
+
+printf "%-35s" "bd (beads) version"
+if command -v bd &>/dev/null; then
+    bd --version 2>&1 | head -1 || echo "[UNKNOWN]"
+else
+    echo "[NOT INSTALLED]"
+fi
+
+printf "%-35s" "ubs version"
+if command -v ubs &>/dev/null; then
+    ubs --version 2>&1 | head -1 || echo "[UNKNOWN]"
+else
+    echo "[NOT INSTALLED]"
+fi
+
+echo ""
+echo "==> Path Verification (ACFS checks)..."
+# Claude should be accessible from ~/.local/bin
+printf "%-35s" "Claude in ~/.local/bin"
+if [[ -x ~/.local/bin/claude ]] || [[ -L ~/.local/bin/claude ]]; then
+    echo "[OK]"
+    ((PASS++))
+else
+    echo "[WARN] (use Homebrew path)"
+    ((WARN++))
+fi
+
+# Check for stale agent state
+printf "%-35s" "Agent state freshness"
+if [[ -f ~/.claude/agent-state.json ]]; then
+    STATE_AGE=$(( $(date +%s) - $(stat -c %Y ~/.claude/agent-state.json 2>/dev/null || echo 0) ))
+    if [[ $STATE_AGE -gt 14400 ]]; then  # 4 hours
+        echo "[STALE] (>4h old, run bd-cleanup)"
+        ((WARN++))
+    else
+        echo "[OK]"
+        ((PASS++))
+    fi
+else
+    echo "[NONE] (will create on first run)"
+    ((PASS++))
 fi
 
 echo ""

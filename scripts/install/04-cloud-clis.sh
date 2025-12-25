@@ -28,16 +28,24 @@ else
     echo "    wrangler already installed: $(wrangler --version)"
 fi
 
-# Supabase CLI
+# Supabase CLI (ACFS backport: improved reliability)
 if ! command -v supabase &>/dev/null; then
     echo "    Installing supabase..."
+    # Prefer Homebrew for stable releases
     if command -v brew &>/dev/null; then
-        brew install supabase/tap/supabase
+        if brew tap supabase/tap 2>/dev/null && brew install supabase/tap/supabase 2>/dev/null; then
+            echo "    supabase installed via Homebrew"
+        else
+            echo "    WARNING: Homebrew install failed, trying bun..."
+            bun install -g supabase 2>/dev/null || echo "    WARNING: supabase installation failed"
+        fi
     else
-        # Fallback to npm/bun
-        bun install -g supabase
+        # Fallback to bun
+        bun install -g supabase 2>/dev/null || echo "    WARNING: supabase installation failed"
     fi
-    echo "    supabase installed: $(supabase --version)"
+    if command -v supabase &>/dev/null; then
+        echo "    supabase installed: $(supabase --version)"
+    fi
 else
     echo "    supabase already installed: $(supabase --version)"
 fi

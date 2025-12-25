@@ -15,9 +15,12 @@ if ! command -v zsh &>/dev/null; then
     sudo apt-get install -y zsh
 fi
 
-# Install Oh My Zsh if not present
+# Install Oh My Zsh if not present (ACFS backport: version pinning for stability)
+OMZ_COMMIT="d68d445f4b4ffb2d726d4ccf2d62e2cb08a0f5de"  # Pinned stable version
 if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
-    echo "    Installing Oh My Zsh..."
+    echo "    Installing Oh My Zsh (pinned to stable commit)..."
+    # Use pinned version for reproducible installs
+    RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/${OMZ_COMMIT}/tools/install.sh)" || \
     RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 else
     echo "    Oh My Zsh already installed"

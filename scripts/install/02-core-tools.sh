@@ -21,7 +21,8 @@ if ! command -v bd &>/dev/null; then
 
     # Download the latest bd binary from GitHub releases
     # Source: https://github.com/steveyegge/beads
-    BD_VERSION="0.29.0"
+    # v0.33+ introduces molecular bonding system (bd mol, bd cook, bd ship, etc.)
+    BD_VERSION="0.36.0"
     BD_URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/bd_linux_amd64"
 
     if curl -fsSL -o ~/.local/bin/bd "$BD_URL" 2>/dev/null; then
@@ -68,7 +69,8 @@ if ! command -v bv &>/dev/null; then
     else
         # Fallback: download binary from releases
         echo "    Homebrew failed, downloading binary..."
-        BV_VERSION="0.10.2"
+        # v0.11.0+ adds hybrid search with graph-aware ranking
+        BV_VERSION="0.11.2"
         BV_URL="https://github.com/Dicklesworthstone/beads_viewer/releases/download/v${BV_VERSION}/beads_viewer_linux_amd64.tar.gz"
 
         if curl -fsSL "$BV_URL" | tar -xz -C /tmp && mv /tmp/bv ~/.local/bin/bv; then
@@ -110,6 +112,12 @@ if ! command -v claude &>/dev/null; then
     echo "==> Installing Claude Code..."
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
     brew install claude-code
+
+    # Ensure claude is in ~/.local/bin for consistent PATH handling (ACFS backport)
+    if [[ -x "/home/linuxbrew/.linuxbrew/bin/claude" ]] && [[ ! -L ~/.local/bin/claude ]]; then
+        ln -sf "/home/linuxbrew/.linuxbrew/bin/claude" ~/.local/bin/claude
+        echo "    Symlinked claude to ~/.local/bin"
+    fi
 else
     echo "==> Claude Code already installed"
 fi

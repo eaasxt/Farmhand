@@ -373,12 +373,20 @@ bd list --status=open                 # All open issues
 bd list --status=in_progress          # Currently claimed
 bd show <id>                          # Issue details + dependencies
 bd blocked                            # What's stuck and why
+bd activity                           # Recent activity log
 
 # WRITE
 bd create --title="..." --type=task   # New issue
 bd update <id> --status=in_progress   # Claim work
 bd close <id> --reason="Done"         # Complete
 bd dep <blocker> <blocked>            # A blocks B
+bd pin <id>                           # Pin important bead
+bd unpin <id>                         # Unpin bead
+
+# MOLECULAR BONDING (v0.33+)
+bd mol                                # Show molecular bonds
+bd cook                               # Process pending bonds
+bd ship                               # Ship completed work
 
 # ANALYZE
 bd stats                              # Health metrics
@@ -490,8 +498,21 @@ export PATH="/home/ubuntu/.local/bin:/home/ubuntu/.bun/bin:$PATH"
 │   ├── hooks/           # Enforcement hooks
 │   └── agent-state.json # Current agent state (or state-{AGENT_NAME}.json)
 ├── mcp_agent_mail/      # Agent Mail server (SQLite in storage.sqlite3)
-└── CLAUDE.md            # This file
+├── templates/
+│   └── AGENTS.md        # Template for project coordination
+├── CLAUDE.md            # This file (tool instructions)
+└── <project>/
+    └── AGENTS.md        # Per-project agent coordination
 ```
+
+**Two Key Files:**
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `CLAUDE.md` | `~/CLAUDE.md` | Global tool instructions (hooks, commands, workflow) |
+| `AGENTS.md` | `<project>/AGENTS.md` | Per-project coordination (agents, work, conventions) |
+
+Copy `~/templates/AGENTS.md` to each project root for multi-agent work.
 
 ---
 
@@ -542,6 +563,8 @@ UBS stands for "Ultimate Bug Scanner": **The AI Coding Agent's Secret Weapon: Fl
 
 **Install:** `curl -sSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/main/install.sh | bash`
 
+**Dependency:** UBS v5.0.0+ REQUIRES `ast-grep` for JavaScript/TypeScript scanning.
+
 **Golden Rule:** `ubs <changed-files>` before every commit. Exit 0 = safe. Exit >0 = fix & re-run.
 
 **Commands:**
@@ -553,6 +576,13 @@ ubs --ci --fail-on-warning .            # CI mode — before PR
 ubs --help                              # Full command reference
 ubs sessions --entries 1                # Tail the latest install session log
 ubs .                                   # Whole project (ignores things like .venv and node_modules automatically)
+```
+
+**Suppression Markers (v5.0.0+):**
+```python
+x = foo()  # ubs:ignore - Intentional pattern
+y = bar()  # nolint - Also works
+z = baz()  # noqa - Python-style also supported
 ```
 
 **Output Format:**
@@ -697,7 +727,14 @@ ntm spawn myproject --cc=2 --cod=1    # 2 Claude + 1 Codex agents
 ntm attach myproject                   # Connect to session
 ntm palette                            # Command palette (F6 in tmux)
 ntm ls                                 # List sessions
+ntm dashboard                          # Dashboard 360-View (v1.2.0+)
 ```
+
+### New Features (v1.2.0+)
+- **Dashboard 360-View**: Bird's-eye view of all agent sessions
+- **CASS robot mode integration**: Automatic session search
+- **File change tracking**: Track which agent modified each file
+- **Clipboard integration**: Easy copy/paste between agents
 
 ### Command Palette
 Press **F6** in tmux (after `ntm bind`) to open the palette with 40+ pre-built prompts:
@@ -719,8 +756,12 @@ Palette file: `~/.config/ntm/command_palette.md`
 ### cass - Coding Agent Session Search
 ```bash
 cass search "error handling"    # Search all agent session history
+cass export                     # Export sessions (v0.1.32+)
+cass expand                     # Expand context (v0.1.32+)
+cass timeline                   # Timeline view (v0.1.32+)
 cass --help                     # Full options
 ```
+*Supports: Claude Code, Codex, Pi-Agent, Cursor IDE, ChatGPT Desktop*
 *Note: Requires GLIBC 2.39+ (Ubuntu 24.04+)*
 
 ### cm - CASS Memory System
