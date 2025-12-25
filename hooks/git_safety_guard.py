@@ -84,6 +84,45 @@ def is_safe(command: str) -> bool:
     return False
 
 
+def strip_heredoc_content(command: str) -> str:
+    """
+    Remove heredoc content from command before pattern matching.
+
+    Heredocs contain documentation/data, not actual commands.
+    False positives occur when docs contain git command examples.
+
+    Handles:
+        << 'MARKER' ... MARKER
+        << "MARKER" ... MARKER
+        << MARKER ... MARKER
+        <<- MARKER ... MARKER (with tab stripping)
+    """
+    # Pattern matches heredoc start and captures the marker
+    heredoc_start = re.compile(
+        r'<<(-?)\s*([\'"]?)(\w+)\2',
+        re.MULTILINE
+    )
+
+    result = command
+    for match in heredoc_start.finditer(command):
+        marker = match.group(3)
+        start_pos = match.end()
+
+        # Find the closing marker (must be at start of line or after newline)
+        end_pattern = re.compile(
+            rf'\n{marker}\s*$|\n{marker}\s*[;&|]',
+            re.MULTILINE
+        )
+        end_match = end_pattern.search(command, start_pos)
+
+        if end_match:
+            # Replace heredoc content with placeholder
+            heredoc_content = command[start_pos:end_match.start()]
+            result = result.replace(heredoc_content, ' [HEREDOC_CONTENT] ')
+
+    return result
+
+
 def check_destructive(command: str) -> tuple[bool, str]:
     """
     Check if command matches a destructive pattern.
@@ -91,8 +130,11 @@ def check_destructive(command: str) -> tuple[bool, str]:
     Returns:
         (is_blocked, reason) - True if command should be blocked
     """
+    # Strip heredoc content to avoid false positives on documentation
+    command_to_check = strip_heredoc_content(command)
+
     for pattern, reason in DESTRUCTIVE_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE):
+        if re.search(pattern, command_to_check, re.IGNORECASE):
             return True, reason
     return False, ""
 

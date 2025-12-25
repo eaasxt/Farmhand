@@ -289,3 +289,56 @@ class TestGitSafetyGuard:
         )
 
         assert result.returncode == 0
+
+
+class TestHeredocStripping:
+    """Tests for heredoc content stripping to avoid false positives."""
+
+    @pytest.fixture
+    def hook_path(self, hooks_dir):
+        return hooks_dir / "git_safety_guard.py"
+
+    def test_heredoc_content_not_scanned(self, hook_path):
+        """Heredoc content should not trigger blocking."""
+        cmd = "cat << 'EOF'\n# Example: git push --force origin main\nEOF"
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": cmd}
+        }
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+        assert exit_code == 0, "Heredoc content should not trigger blocking"
+
+    def test_unquoted_heredoc_marker(self, hook_path):
+        """Unquoted heredoc markers should also be stripped."""
+        cmd = "cat << MARKER\ngit push --force\nMARKER"
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": cmd}
+        }
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+        assert exit_code == 0, "Unquoted heredoc content should not trigger"
+
+    def test_command_before_heredoc_still_checked(self, hook_path):
+        """Commands before heredoc should still be checked."""
+        cmd = "git reset --hard && cat << 'EOF'\nsome content\nEOF"
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": cmd}
+        }
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+        assert output is not None, "Command before heredoc should be checked"
+        assert output["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_double_quoted_heredoc_marker(self, hook_path):
+        """Double-quoted heredoc markers should be handled."""
+        cmd = 'cat << "END"\ngit clean -fd\nEND'
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": cmd}
+        }
+        exit_code, stdout, stderr = run_hook(hook_path, input_data)
+        output = parse_hook_output(stdout)
+        assert exit_code == 0, "Double-quoted heredoc content should not trigger"
