@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-MCP State Tracker Hook (PostToolUse) - v3
+MCP State Tracker Hook (PostToolUse) - v4
 ------------------------------------
 Tracks agent state after MCP tool calls:
 - Updates registration status after register_agent
 - Tracks file reservations after file_reservation_paths
 - Clears reservations after release_file_reservations
+- Tracks artifact trail (files created/modified/read)
+
+ARTIFACT TRAIL: Research shows file tracking is the weakest dimension in
+agent sessions (2.2-2.5/5.0 scores). This hook tracks files touched to
+improve handoff quality between agents and sessions.
 
 MULTI-AGENT SAFE: Uses per-agent state files based on AGENT_NAME env var.
 State is stored in ~/.claude/state-{AGENT_NAME}.json
@@ -135,7 +140,11 @@ def load_state():
         "agent_name": AGENT_NAME,  # Use env var if available
         "reservations": [],
         "issue_id": None,
-        "session_start": time.time()
+        "session_start": time.time(),
+        # Artifact trail for handoff quality
+        "files_created": [],
+        "files_modified": [],
+        "files_read": []
     }
 
 def save_state(state):
@@ -163,7 +172,7 @@ def main():
     tool_input = input_data.get("tool_input", {})
     tool_output = input_data.get("tool_output", {})
 
-    # Only track MCP Agent Mail tools
+    # MCP Agent Mail tools
     mcp_tools = {
         "mcp__mcp-agent-mail__register_agent": "register",
         "mcp__mcp-agent-mail__file_reservation_paths": "reserve",
@@ -176,8 +185,18 @@ def main():
         "macro_start_session": "macro_start",
     }
 
+    # Artifact tracking for file operations (improves handoff quality)
+    artifact_tools = {
+        "Write": "created",
+        "Edit": "modified",
+        "Read": "read",
+    }
+
     action = mcp_tools.get(tool_name)
-    if not action:
+    artifact_action = artifact_tools.get(tool_name)
+
+    # Exit early if neither MCP tool nor artifact tool
+    if not action and not artifact_action:
         sys.exit(0)
 
     # Use lock for entire read-modify-write cycle
@@ -237,6 +256,34 @@ def main():
                         "expires_at": time.time() + tool_input.get("ttl_seconds", 3600)
                     }
                     state["reservations"].append(reservation)
+                save_state(state)
+
+        # Track file artifacts for handoff quality
+        if artifact_action:
+            file_path = tool_input.get("file_path", "")
+            if file_path:
+                # Ensure artifact trail lists exist (for backwards compatibility)
+                if "files_created" not in state:
+                    state["files_created"] = []
+                if "files_modified" not in state:
+                    state["files_modified"] = []
+                if "files_read" not in state:
+                    state["files_read"] = []
+
+                # Track based on operation type (deduplicated)
+                if artifact_action == "created":
+                    if file_path not in state["files_created"]:
+                        state["files_created"].append(file_path)
+                elif artifact_action == "modified":
+                    if file_path not in state["files_modified"]:
+                        state["files_modified"].append(file_path)
+                elif artifact_action == "read":
+                    # Limit reads to last 50 to avoid unbounded growth
+                    if file_path not in state["files_read"]:
+                        state["files_read"].append(file_path)
+                        if len(state["files_read"]) > 50:
+                            state["files_read"] = state["files_read"][-50:]
+
                 save_state(state)
 
     sys.exit(0)

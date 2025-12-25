@@ -45,24 +45,24 @@ class TestMcpStateTracker:
         assert exit_code == 0
         # No state should be saved (we can't easily verify this without checking file)
 
-    # === Non-MCP tools pass through ===
+    # === Non-tracked tools pass through ===
 
-    def test_ignores_non_mcp_tools(self, hook_path):
-        """Non-MCP tools should pass through without action."""
+    def test_ignores_untracked_tools(self, hook_path):
+        """Untracked tools (Bash, Grep, etc.) should pass through without action."""
         input_data = {
-            "tool_name": "Edit",
-            "tool_input": {"file_path": "/some/file.py"}
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls -la"}
         }
 
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
 
         assert exit_code == 0
 
-    def test_ignores_read_tool(self, hook_path):
-        """Read tool should pass through."""
+    def test_ignores_glob_tool(self, hook_path):
+        """Glob tool should pass through."""
         input_data = {
-            "tool_name": "Read",
-            "tool_input": {"file_path": "/some/file.py"}
+            "tool_name": "Glob",
+            "tool_input": {"pattern": "*.py"}
         }
 
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
@@ -334,3 +334,177 @@ class TestMcpStateTracker:
 
         # Should not crash
         assert exit_code == 0
+
+
+class TestArtifactTracking:
+    """Test cases for artifact trail tracking (v4 feature)."""
+
+    @pytest.fixture
+    def hook_path(self, hooks_dir):
+        return hooks_dir / "mcp-state-tracker.py"
+
+    @pytest.fixture
+    def state_file(self, mock_home):
+        """Create a state file path for testing."""
+        return mock_home / ".claude" / "agent-state.json"
+
+    def test_tracks_write_as_created(self, hook_path, mock_home):
+        """Write tool should add file to files_created."""
+        input_data = {
+            "tool_name": "Write",
+            "tool_input": {"file_path": "/home/test/new_file.py", "content": "..."}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state_file = mock_home / ".claude" / "agent-state.json"
+        assert state_file.exists()
+
+        state = json.loads(state_file.read_text())
+        assert "/home/test/new_file.py" in state["files_created"]
+
+    def test_tracks_edit_as_modified(self, hook_path, mock_home):
+        """Edit tool should add file to files_modified."""
+        input_data = {
+            "tool_name": "Edit",
+            "tool_input": {"file_path": "/home/test/existing.py", "old_string": "a", "new_string": "b"}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state_file = mock_home / ".claude" / "agent-state.json"
+        assert state_file.exists()
+
+        state = json.loads(state_file.read_text())
+        assert "/home/test/existing.py" in state["files_modified"]
+
+    def test_tracks_read_as_read(self, hook_path, mock_home):
+        """Read tool should add file to files_read."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/home/test/readme.md"}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state_file = mock_home / ".claude" / "agent-state.json"
+        assert state_file.exists()
+
+        state = json.loads(state_file.read_text())
+        assert "/home/test/readme.md" in state["files_read"]
+
+    def test_deduplicates_file_entries(self, hook_path, mock_home):
+        """Same file should only appear once in artifact lists."""
+        # Create initial state
+        state_dir = mock_home / ".claude"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        state_file = state_dir / "agent-state.json"
+        state_file.write_text(json.dumps({
+            "registered": True,
+            "agent_name": "Test",
+            "reservations": [],
+            "files_created": [],
+            "files_modified": ["/home/test/file.py"],
+            "files_read": []
+        }))
+
+        # Edit same file again
+        input_data = {
+            "tool_name": "Edit",
+            "tool_input": {"file_path": "/home/test/file.py", "old_string": "a", "new_string": "b"}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state = json.loads(state_file.read_text())
+        # Should still only have one entry
+        assert state["files_modified"].count("/home/test/file.py") == 1
+
+    def test_limits_files_read_to_50(self, hook_path, mock_home):
+        """files_read should be limited to last 50 entries."""
+        # Create initial state with 50 files
+        state_dir = mock_home / ".claude"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        state_file = state_dir / "agent-state.json"
+        initial_files = [f"/home/test/file{i}.py" for i in range(50)]
+        state_file.write_text(json.dumps({
+            "registered": True,
+            "agent_name": "Test",
+            "reservations": [],
+            "files_created": [],
+            "files_modified": [],
+            "files_read": initial_files
+        }))
+
+        # Read a new file
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/home/test/new_file.py"}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state = json.loads(state_file.read_text())
+        # Should be exactly 50 entries
+        assert len(state["files_read"]) == 50
+        # New file should be present
+        assert "/home/test/new_file.py" in state["files_read"]
+        # First file should be gone (oldest removed)
+        assert "/home/test/file0.py" not in state["files_read"]
+
+    def test_backwards_compatible_with_old_state(self, hook_path, mock_home):
+        """Should work with state files that don't have artifact fields."""
+        # Create old-style state without artifact fields
+        state_dir = mock_home / ".claude"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        state_file = state_dir / "agent-state.json"
+        state_file.write_text(json.dumps({
+            "registered": True,
+            "agent_name": "Test",
+            "reservations": []
+            # No files_created, files_modified, files_read
+        }))
+
+        input_data = {
+            "tool_name": "Edit",
+            "tool_input": {"file_path": "/home/test/file.py"}
+        }
+
+        exit_code, stdout, stderr = run_hook(
+            hook_path,
+            input_data,
+            env={"HOME": str(mock_home)}
+        )
+
+        assert exit_code == 0
+        state = json.loads(state_file.read_text())
+        # Should have created the artifact fields
+        assert "files_created" in state
+        assert "files_modified" in state
+        assert "files_read" in state
+        assert "/home/test/file.py" in state["files_modified"]
