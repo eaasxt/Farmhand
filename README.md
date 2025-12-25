@@ -431,6 +431,547 @@ ntm attach myproject                 # Connect to session
 ```
 
 ---
+---
+
+## 🌾 How to Use Farmhand
+
+This section walks you through actually using Farmhand, from your first single-agent session to orchestrating a multi-agent team. We'll use a farming-themed example project throughout: **CropWatch**, a smart irrigation controller.
+
+### Keyboard Shortcuts & Navigation
+
+Master these shortcuts to work efficiently:
+
+#### Terminal & Shell
+
+| Shortcut | Action | Context |
+|----------|--------|---------|
+| `Ctrl+R` | Fuzzy search command history (atuin) | Any terminal |
+| `Ctrl+T` | Fuzzy find files (fzf) | Any terminal |
+| `Alt+C` | Fuzzy cd into directory (fzf) | Any terminal |
+| `z <partial>` | Smart jump to directory (zoxide) | e.g., `z crop` → `~/projects/cropwatch` |
+| `Tab` | Autocomplete with suggestions | zsh-autosuggestions |
+| `Ctrl+L` | Clear screen | Any terminal |
+| `Ctrl+C` | Cancel current command | Any terminal |
+| `Ctrl+D` | Exit shell / EOF | Any terminal |
+
+#### Tmux (Inside NTM Sessions)
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+B` then `d` | Detach from session |
+| `Ctrl+B` then `[` | Enter scroll/copy mode |
+| `Ctrl+B` then `]` | Paste buffer |
+| `Ctrl+B` then `c` | Create new window |
+| `Ctrl+B` then `n` / `p` | Next / previous window |
+| `Ctrl+B` then `0-9` | Jump to window by number |
+| `Ctrl+B` then `%` | Split pane vertically |
+| `Ctrl+B` then `"` | Split pane horizontally |
+| `Ctrl+B` then arrow keys | Navigate between panes |
+| `F6` | Open NTM command palette |
+
+#### Claude Code (Inside Agent Session)
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+C` | Cancel current generation |
+| `Ctrl+L` | Clear conversation |
+| `/help` | Show available commands |
+| `/compact` | Toggle compact mode |
+| `Esc` | Dismiss/cancel |
+| `Up/Down` | Navigate history |
+
+#### Lazygit (Git TUI)
+
+| Shortcut | Action |
+|----------|--------|
+| `lg` | Launch lazygit |
+| `Space` | Stage/unstage file |
+| `c` | Commit |
+| `P` | Push |
+| `p` | Pull |
+| `?` | Show all shortcuts |
+| `q` | Quit |
+
+---
+
+### Example Project: CropWatch 🌱
+
+Throughout this guide, we will build **CropWatch** - a smart irrigation controller that:
+- Monitors soil moisture sensors
+- Controls irrigation valves
+- Provides a web dashboard
+- Sends alerts when intervention needed
+
+---
+
+### Single Agent Workflow
+
+Perfect for getting started or smaller tasks.
+
+#### Step 1: Create Your Project
+
+```bash
+# Create and enter project directory
+mkdir -p ~/projects/cropwatch && cd ~/projects/cropwatch
+
+# Initialize git and beads
+git init
+bd init
+
+# Create initial structure
+mkdir -p src tests docs
+```
+
+#### Step 2: Plan Your Work with Beads
+
+```bash
+# Create the main epic
+bd create --title="CropWatch MVP" --type=epic --priority=1
+
+# Break it into tasks
+bd create --title="Sensor data models" --type=task --priority=1
+bd create --title="Irrigation controller API" --type=task --priority=1
+bd create --title="Web dashboard" --type=task --priority=2
+bd create --title="Alert system" --type=task --priority=2
+
+# Set dependencies (dashboard depends on API)
+bd dep <api-task-id> <dashboard-task-id>
+
+# See what is ready to work on
+bd ready
+```
+
+Output:
+```
+cropwatch-a1b [P1] [task] open - Sensor data models
+cropwatch-c2d [P1] [task] open - Irrigation controller API
+```
+
+#### Step 3: Start Claude in Dangerous Mode
+
+```bash
+# Launch Claude with auto-approve (alias: cc)
+cc
+
+# Or the full command:
+claude --dangerously-skip-permissions
+```
+
+#### Step 4: Register and Reserve (Inside Claude)
+
+Once Claude starts, you will see the enforcement hooks in action. Tell Claude:
+
+```
+I am working on CropWatch. Please:
+1. Register as an agent
+2. Reserve the src/ directory
+3. Claim the "Sensor data models" task
+```
+
+Claude will run:
+```python
+# Register with MCP Agent Mail
+register_agent(
+    project_key="/home/ubuntu/projects/cropwatch",
+    program="claude-code",
+    model="opus-4.5"
+)
+# Returns: {"name": "BlueLake", ...}
+
+# Reserve files
+file_reservation_paths(
+    project_key="/home/ubuntu/projects/cropwatch",
+    agent_name="BlueLake",
+    paths=["src/**", "tests/**"],
+    ttl_seconds=3600,
+    exclusive=True,
+    reason="cropwatch-a1b"
+)
+```
+
+```bash
+# Claude updates beads
+bd update cropwatch-a1b --status=in_progress --assignee=BlueLake
+```
+
+#### Step 5: Do the Work
+
+Now Claude can edit files freely. Ask it to:
+
+```
+Create the sensor data models in src/models/sensor.py with:
+- SoilMoistureSensor class
+- MoistureReading dataclass with timestamp, value, sensor_id
+- Validation for moisture range 0-100%
+```
+
+Claude edits files - hooks allow it because files are reserved.
+
+#### Step 6: Commit and Close
+
+When done with the task:
+
+```
+Run ubs on the changed files, commit the work, and close the bead.
+```
+
+Claude will:
+```bash
+# Security scan
+ubs src/models/sensor.py tests/test_sensor.py
+
+# Commit
+git add -A
+git commit -m "Add sensor data models
+
+- SoilMoistureSensor class with calibration
+- MoistureReading dataclass with validation
+- Unit tests with 95% coverage
+
+Closes cropwatch-a1b"
+```
+
+```python
+# Release reservations
+release_file_reservations(
+    project_key="/home/ubuntu/projects/cropwatch",
+    agent_name="BlueLake"
+)
+```
+
+```bash
+# Close the bead
+bd close cropwatch-a1b --reason="Sensor models complete with tests"
+```
+
+---
+
+### Multi-Agent Workflow
+
+The real power of Farmhand: multiple AI agents working in parallel.
+
+#### Step 1: Plan Parallel Tracks
+
+First, structure work for parallel execution:
+
+```bash
+# Check what can run in parallel
+bv --robot-plan
+
+# Output shows tracks:
+# Track 1: cropwatch-a1b (Sensor models) -> cropwatch-e5f (Dashboard)
+# Track 2: cropwatch-c2d (API) -> cropwatch-g7h (Alerts)
+```
+
+#### Step 2: Spawn Multiple Agents
+
+```bash
+# Spawn 2 Claude agents for the project
+ntm spawn cropwatch --cc=2
+
+# Or mixed agents:
+ntm spawn cropwatch --cc=1 --cod=1 --gmi=1
+```
+
+This creates a tmux session with:
+- Window 1: Claude agent `cropwatch__cc_1`
+- Window 2: Claude agent `cropwatch__cc_2`
+
+#### Step 3: Attach and Navigate
+
+```bash
+# Attach to the session
+ntm attach cropwatch
+
+# You will see the first agent. To switch:
+# Ctrl+B then n -> Next window (agent 2)
+# Ctrl+B then p -> Previous window (agent 1)
+# Ctrl+B then 1 -> Jump to window 1
+# Ctrl+B then 2 -> Jump to window 2
+```
+
+#### Step 4: Assign Work to Each Agent
+
+**In Window 1 (Agent 1):**
+```
+You are working on CropWatch. Your focus is the sensor layer.
+1. Register as an agent
+2. Reserve src/models/** and src/sensors/**
+3. Claim "Sensor data models" (cropwatch-a1b)
+4. Build the sensor data models and drivers
+```
+
+**In Window 2 (Agent 2):**
+```
+You are working on CropWatch. Your focus is the API layer.
+1. Register as an agent  
+2. Reserve src/api/** and src/controllers/**
+3. Claim "Irrigation controller API" (cropwatch-c2d)
+4. Build the FastAPI endpoints for irrigation control
+```
+
+Each agent registers separately and gets a unique name (e.g., "BlueLake" and "GreenMountain").
+
+#### Step 5: Agents Coordinate via Messages
+
+If Agent 2 needs something from Agent 1:
+
+```python
+# Agent 2 sends a message
+send_message(
+    project_key="/home/ubuntu/projects/cropwatch",
+    sender_name="GreenMountain",
+    to=["BlueLake"],
+    subject="Need sensor interface",
+    body_md="""
+I am building the API and need the sensor interface.
+Can you prioritize the SensorReader class?
+I will wait before implementing the /readings endpoint.
+    """,
+    importance="high",
+    thread_id="cropwatch-c2d"
+)
+```
+
+Agent 1 sees it in their inbox:
+```python
+# Check inbox
+fetch_inbox(
+    project_key="/home/ubuntu/projects/cropwatch",
+    agent_name="BlueLake"
+)
+```
+
+#### Step 6: Use the Command Palette
+
+Press `F6` in any tmux window to open the NTM command palette:
+
+```
++-------------------------------------------+
+|         NTM Command Palette               |
++-------------------------------------------+
+| [1] Fresh code review                     |
+| [2] Check other agents work               |
+| [3] Apply UBS to recent changes           |
+| [4] Fix bug in current context            |
+| [5] Create tests for recent code          |
+| [6] Check Agent Mail inbox                |
+| [7] Announce completion                   |
+| [8] Request help from other agent         |
+| ...                                       |
++-------------------------------------------+
+```
+
+Select a command and it is pasted into the agent prompt.
+
+#### Step 7: Monitor Progress
+
+In a separate terminal:
+
+```bash
+# Watch beads status
+watch -n 5 bd stats
+
+# See who is working on what
+bd list --status=in_progress
+
+# Graph analysis
+bv --robot-summary
+```
+
+#### Step 8: Coordinate Completion
+
+When all agents finish their tasks:
+
+```bash
+# Check all tracks complete
+bv --robot-alerts
+
+# Should show no warnings
+
+# Final stats
+bd stats
+```
+
+---
+
+### Daily Workflow Patterns
+
+#### Morning: Start Your Session
+
+```bash
+# 1. Check project health
+cd ~/projects/cropwatch
+bd stats
+bd ready
+
+# 2. See priority recommendations
+bv --robot-priority
+
+# 3. Search past sessions for context
+cass search "irrigation valve" --days 7
+
+# 4. Start agents
+ntm spawn cropwatch --cc=2
+ntm attach cropwatch
+```
+
+#### During Work: Common Commands
+
+```bash
+# What files are reserved?
+bd-cleanup --list
+
+# Quick git status
+lg  # Opens lazygit
+
+# Search docs
+qmd query "how does the valve controller work"
+
+# Security check before commit
+ubs $(git diff --name-only)
+```
+
+#### End of Day: Clean Shutdown
+
+```bash
+# 1. In each agent window, say:
+"Wrap up current work, commit changes, release reservations, and close any completed beads."
+
+# 2. Detach from tmux
+# Ctrl+B then d
+
+# 3. Verify clean state
+bd list --status=in_progress  # Should be empty or known
+bd-cleanup --list             # Check for orphans
+
+# 4. Ensure changes are pushed
+cd ~/projects/cropwatch
+git status
+```
+
+---
+
+### Handling Common Scenarios
+
+#### Scenario: Agent Gets Stuck
+
+```bash
+# Check what is blocking
+bv --robot-alerts
+
+# If agent crashed, clean up its reservations
+bd-cleanup --force
+
+# Restart the agent
+ntm spawn cropwatch --cc=1
+```
+
+#### Scenario: Need to Edit a Reserved File
+
+```
+# Option 1: Ask the reserving agent to release
+# (Send them a message via Agent Mail)
+
+# Option 2: Wait for TTL expiry (default 1 hour)
+
+# Option 3: Force cleanup (if agent crashed)
+bd-cleanup --release-all
+
+# Option 4: Bypass enforcement (use sparingly)
+export FARMHAND_SKIP_ENFORCEMENT=1
+claude
+```
+
+#### Scenario: Merge Conflicts
+
+```bash
+# The reservation system should prevent these, but if they happen:
+
+# 1. Open lazygit
+lg
+
+# 2. Navigate to conflicted files
+# 3. Press e to edit and resolve
+# 4. Stage with Space, commit with c
+
+# Better: Check reservations before working
+bd-cleanup --list
+```
+
+#### Scenario: Starting Fresh on a New Feature
+
+```bash
+# 1. Create the epic and tasks
+bd create --title="Greenhouse Integration" --type=epic
+bd create --title="Greenhouse sensor protocol" --type=task
+bd create --title="Greenhouse UI panel" --type=task
+bd create --title="Greenhouse alerts" --type=task
+
+# 2. Set dependencies
+bd dep <sensor-id> <ui-id>
+bd dep <sensor-id> <alerts-id>
+
+# 3. Check the plan
+bv --robot-plan
+
+# 4. Spawn agents and assign tracks
+ntm spawn cropwatch --cc=3
+```
+
+---
+
+### Tips for Effective Multi-Agent Work
+
+#### Dos
+
+1. **Start with `bd ready`** - Always know what is available before claiming
+2. **Use descriptive bead titles** - "Fix auth bug" -> "Fix JWT expiry not refreshing in mobile app"  
+3. **Reserve files early** - Claim territory before coding
+4. **Commit often** - Small, focused commits are easier to review
+5. **Run `ubs` before every commit** - Catch security issues early
+6. **Use thread_id in messages** - Keep conversations organized by bead
+7. **Close beads promptly** - Do not hoard completed work
+8. **Detach, do not kill** - Use `Ctrl+B d` to preserve tmux sessions
+
+#### Do Nots
+
+1. **Do not skip registration** - Hooks will block your edits
+2. **Do not run bare `bv`** - It opens TUI and hangs; use `--robot-*` flags
+3. **Do not reserve everything** - Only reserve what you are actively editing
+4. **Do not ignore inbox messages** - Other agents may be blocked on you
+5. **Do not force-kill agents** - Orphans reservations; use clean shutdown
+6. **Do not skip `ubs`** - About 40% of LLM-generated code has vulnerabilities
+7. **Do not debate in messages** - Write tests to adjudicate disagreements
+
+---
+
+### Quick Reference Card
+
+```
++-----------------------------------------------------------------------------+
+|                        FARMHAND QUICK REFERENCE                             |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|  FIND WORK          |  SETUP              |  WORK                          |
+|  bd ready           |  register_agent()   |  Edit files freely             |
+|  bv --robot-priority|  file_reservation_  |  (hooks allow after setup)     |
+|  bv --robot-plan    |  paths()            |                                |
+|                     |                     |                                |
+|  COMMIT             |  CLEANUP            |  MULTI-AGENT                   |
+|  ubs <files>        |  release_file_      |  ntm spawn <p> --cc=2          |
+|  git add -A         |  reservations()     |  ntm attach <project>          |
+|  git commit         |  bd close <id>      |  F6 -> command palette         |
+|                     |  bd-cleanup         |  Ctrl+B n/p -> switch window   |
+|                     |                     |                                |
+|  SHORTCUTS          |  NAVIGATION         |  RECOVERY                      |
+|  cc = claude danger |  z <dir> = jump     |  bd-cleanup --force            |
+|  lg = lazygit       |  Ctrl+R = history   |  bd-cleanup --release-all      |
+|  F6 = ntm palette   |  Ctrl+T = find file |  bd-cleanup --reset-state      |
+|                     |                     |                                |
++-----------------------------------------------------------------------------+
+```
+
 
 ## 🔧 Troubleshooting
 
