@@ -6,7 +6,7 @@
 
 [![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
-[![License](https://img.shields.io/badge/license-Private-red.svg)](#license)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
 [![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-30%2B-purple.svg)](#-what-gets-installed)
 
@@ -263,9 +263,9 @@ The magic of Farmhand is that agents **can't cheat**. Hooks intercept tool calls
 For experienced users who need to bypass enforcement:
 
 ```bash
-export JOHNDEERE_SKIP_ENFORCEMENT=1
+export FARMHAND_SKIP_ENFORCEMENT=1
 claude  # Now hooks won't block
-unset JOHNDEERE_SKIP_ENFORCEMENT
+unset FARMHAND_SKIP_ENFORCEMENT
 ```
 
 ---
@@ -571,7 +571,7 @@ python3 -m pytest tests/ -v
 
 ## 📄 License
 
-Private repository - internal use only.
+MIT License - see LICENSE file.
 
 ---
 

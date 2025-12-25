@@ -29,7 +29,7 @@ class TestMcpStateTracker:
     # === Escape hatch ===
 
     def test_escape_hatch_bypasses_tracking(self, hook_path):
-        """JOHNDEERE_SKIP_ENFORCEMENT=1 should bypass all tracking."""
+        """FARMHAND_SKIP_ENFORCEMENT=1 should bypass all tracking."""
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
@@ -39,7 +39,7 @@ class TestMcpStateTracker:
         exit_code, stdout, stderr = run_hook(
             hook_path,
             input_data,
-            env={"JOHNDEERE_SKIP_ENFORCEMENT": "1"}
+            env={"FARMHAND_SKIP_ENFORCEMENT": "1"}
         )
 
         assert exit_code == 0

@@ -18,7 +18,7 @@
 set -euo pipefail
 
 VERSION="2.1.0"
-JOHNDEERE_HOME="$HOME/.johndeere"
+FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
@@ -69,8 +69,8 @@ echo "╚═══════════════════════�
 echo -e "${NC}"
 
 # Check for existing installation
-if [[ -f "$JOHNDEERE_HOME/version" ]]; then
-    INSTALLED_VERSION=$(cat "$JOHNDEERE_HOME/version")
+if [[ -f "$FARMHAND_HOME/version" ]]; then
+    INSTALLED_VERSION=$(cat "$FARMHAND_HOME/version")
     echo -e "${YELLOW}Existing installation detected: v$INSTALLED_VERSION${NC}"
     if [[ "$FORCE" != true ]]; then
         echo "Run with --force to reinstall, or use upgrade.sh to upgrade."
@@ -155,9 +155,9 @@ source "$SCRIPT_DIR/scripts/install/09-hooks.sh"
 source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
 
 # Record installation
-mkdir -p "$JOHNDEERE_HOME"
-echo "$VERSION" > "$JOHNDEERE_HOME/version"
-date -Iseconds > "$JOHNDEERE_HOME/installed_at"
+mkdir -p "$FARMHAND_HOME"
+echo "$VERSION" > "$FARMHAND_HOME/version"
+date -Iseconds > "$FARMHAND_HOME/installed_at"
 
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"

@@ -266,18 +266,18 @@ Install via: `cp config/git-hooks/pre-commit .git/hooks/ && chmod +x .git/hooks/
 - `hooks/reservation-checker.py`
 - `hooks/todowrite-interceptor.py`
 
-**Approach:** Check for `JOHNDEERE_SKIP_ENFORCEMENT=1` env var:
+**Approach:** Check for `FARMHAND_SKIP_ENFORCEMENT=1` env var:
 
 ```python
 # At top of each hook:
-if os.environ.get("JOHNDEERE_SKIP_ENFORCEMENT") == "1":
+if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
     sys.exit(0)  # Allow everything
 ```
 
 **Usage:**
 ```bash
 # Quick fix mode - bypasses all enforcement
-JOHNDEERE_SKIP_ENFORCEMENT=1 claude
+FARMHAND_SKIP_ENFORCEMENT=1 claude
 
 # Normal mode - full enforcement
 claude

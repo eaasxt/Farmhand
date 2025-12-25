@@ -90,7 +90,7 @@ class TestTodoWriteInterceptor:
         assert stdout.strip() == "" or "deny" not in stdout
 
     def test_escape_hatch_bypasses_block(self, hook_path):
-        """JOHNDEERE_SKIP_ENFORCEMENT=1 should bypass the block."""
+        """FARMHAND_SKIP_ENFORCEMENT=1 should bypass the block."""
         input_data = {
             "tool_name": "TodoWrite",
             "tool_input": {
@@ -103,7 +103,7 @@ class TestTodoWriteInterceptor:
         exit_code, stdout, stderr = run_hook(
             hook_path,
             input_data,
-            env={"JOHNDEERE_SKIP_ENFORCEMENT": "1"}
+            env={"FARMHAND_SKIP_ENFORCEMENT": "1"}
         )
 
         # Should exit 0 with no denial

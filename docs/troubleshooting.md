@@ -243,10 +243,10 @@ bd ready  # List available work
 For experienced users who need to bypass enforcement temporarily:
 
 ```bash
-export JOHNDEERE_SKIP_ENFORCEMENT=1
+export FARMHAND_SKIP_ENFORCEMENT=1
 claude
 # Edit files without reservations
-unset JOHNDEERE_SKIP_ENFORCEMENT
+unset FARMHAND_SKIP_ENFORCEMENT
 ```
 
 **Use sparingly** - hooks protect against multi-agent conflicts.

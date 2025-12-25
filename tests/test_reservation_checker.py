@@ -134,7 +134,7 @@ class TestReservationChecker:
     # === Escape hatch ===
 
     def test_escape_hatch_bypasses_all_checks(self, hook_path):
-        """JOHNDEERE_SKIP_ENFORCEMENT=1 should bypass all checks."""
+        """FARMHAND_SKIP_ENFORCEMENT=1 should bypass all checks."""
         input_data = {
             "tool_name": "Edit",
             "tool_input": {"file_path": "/some/protected/file.py"}
@@ -143,7 +143,7 @@ class TestReservationChecker:
         exit_code, stdout, stderr = run_hook(
             hook_path,
             input_data,
-            env={"JOHNDEERE_SKIP_ENFORCEMENT": "1"}
+            env={"FARMHAND_SKIP_ENFORCEMENT": "1"}
         )
 
         assert exit_code == 0

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 VERSION="2.1.0"
-JOHNDEERE_HOME="$HOME/.johndeere"
+FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
@@ -21,13 +21,13 @@ echo -e "${BLUE}Farmhand Upgrade Script${NC}"
 echo ""
 
 # Check for existing installation
-if [[ ! -f "$JOHNDEERE_HOME/version" ]]; then
+if [[ ! -f "$FARMHAND_HOME/version" ]]; then
     echo -e "${YELLOW}No existing installation found.${NC}"
     echo "Run ./install.sh for a fresh installation."
     exit 1
 fi
 
-INSTALLED_VERSION=$(cat "$JOHNDEERE_HOME/version")
+INSTALLED_VERSION=$(cat "$FARMHAND_HOME/version")
 echo "Installed version: v$INSTALLED_VERSION"
 echo "Available version: v$VERSION"
 
@@ -42,7 +42,7 @@ echo -e "${BLUE}Upgrading from v$INSTALLED_VERSION to v$VERSION...${NC}"
 echo ""
 
 # Create backup
-BACKUP_DIR="$JOHNDEERE_HOME/backups/$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="$FARMHAND_HOME/backups/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 echo "[1/5] Creating backup..."
@@ -75,8 +75,8 @@ echo "[5/5] Installing Knowledge & Vibes..."
 source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
 
 # Update version
-echo "$VERSION" > "$JOHNDEERE_HOME/version"
-date -Iseconds > "$JOHNDEERE_HOME/upgraded_at"
+echo "$VERSION" > "$FARMHAND_HOME/version"
+date -Iseconds > "$FARMHAND_HOME/upgraded_at"
 
 echo ""
 echo -e "${GREEN}Upgrade complete! v$INSTALLED_VERSION → v$VERSION${NC}"

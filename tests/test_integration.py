@@ -115,10 +115,10 @@ class TestFullWorkflow:
         assert "bd" in reason.lower() or "beads" in reason.lower()
 
     def test_escape_hatch_bypasses_all_hooks(self, hooks_dir, workflow_env):
-        """JOHNDEERE_SKIP_ENFORCEMENT=1 should bypass all hooks."""
+        """FARMHAND_SKIP_ENFORCEMENT=1 should bypass all hooks."""
         env = {
             "HOME": str(workflow_env["home"]),
-            "JOHNDEERE_SKIP_ENFORCEMENT": "1"
+            "FARMHAND_SKIP_ENFORCEMENT": "1"
         }
         
         # Test reservation-checker
