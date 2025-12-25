@@ -1,4 +1,4 @@
-# JohnDeere Implementation Plan
+# Farmhand Implementation Plan
 
 Prioritized roadmap for addressing all findings from the system evaluation.
 

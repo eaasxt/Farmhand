@@ -1,6 +1,6 @@
-# JohnDeere System Architecture
+# Farmhand System Architecture
 
-This document describes how the components of JohnDeere work together to provide a multi-agent AI coding environment.
+This document describes how the components of Farmhand work together to provide a multi-agent AI coding environment.
 
 ## System Overview
 
@@ -131,7 +131,7 @@ Research-backed workflow system installed as git submodule:
 
 **Templates (8):** North Star Card, Requirements, ADRs, etc.
 
-**Location:** `~/JohnDeere/vendor/knowledge_and_vibes/` (submodule)
+**Location:** `~/Farmhand/vendor/knowledge_and_vibes/` (submodule)
 
 ### 6. Supporting Services
 

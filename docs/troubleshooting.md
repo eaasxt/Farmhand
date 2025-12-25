@@ -140,7 +140,7 @@ sudo systemctl stop mcp-agent-mail ollama
 rm -rf ~/mcp_agent_mail ~/.beads ~/.bun
 
 # Reinstall
-cd ~/JohnDeere
+cd ~/Farmhand
 ./scripts/install.sh
 ```
 

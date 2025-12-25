@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# JohnDeere Upgrade Script
-# Upgrades an existing JohnDeere installation to the latest version
+# Farmhand Upgrade Script
+# Upgrades an existing Farmhand installation to the latest version
 #
 
 set -euo pipefail
@@ -17,7 +17,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}JohnDeere Upgrade Script${NC}"
+echo -e "${BLUE}Farmhand Upgrade Script${NC}"
 echo ""
 
 # Check for existing installation

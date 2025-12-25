@@ -1,5 +1,5 @@
 """
-Integration tests for the full JohnDeere workflow.
+Integration tests for the full Farmhand workflow.
 
 Tests the complete hook chain and state management.
 """

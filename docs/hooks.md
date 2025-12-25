@@ -1,4 +1,4 @@
-# JohnDeere Hooks System
+# Farmhand Hooks System
 
 The hooks system enforces multi-agent coordination by intercepting Claude Code tool calls and blocking operations that violate the workflow.
 

@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures for JohnDeere hook tests.
+Pytest configuration and shared fixtures for Farmhand hook tests.
 """
 
 import json

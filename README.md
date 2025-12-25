@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🚜 JohnDeere
+# 🚜 Farmhand
 
 ### Transform a Fresh Ubuntu VPS into a Multi-Agent AI Coding Powerhouse
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/JohnDeere)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-Private-red.svg)](#license)
 [![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen.svg)](#testing)
@@ -18,11 +18,11 @@
 
 ## 📋 TL;DR
 
-**JohnDeere** takes a bare Ubuntu VPS and installs everything you need to run multiple AI coding agents (Claude, Codex, Gemini) that can work together without stepping on each other's toes.
+**Farmhand** takes a bare Ubuntu VPS and installs everything you need to run multiple AI coding agents (Claude, Codex, Gemini) that can work together without stepping on each other's toes.
 
 ```bash
-git clone https://github.com/eaasxt/JohnDeere.git ~/JohnDeere
-cd ~/JohnDeere && ./install.sh
+git clone https://github.com/eaasxt/Farmhand.git ~/Farmhand
+cd ~/Farmhand && ./install.sh
 ```
 
 **What makes it special:**
@@ -70,8 +70,8 @@ cd ~/JohnDeere && ./install.sh
 
 ```bash
 # 1. Clone and install (15-20 minutes)
-git clone https://github.com/eaasxt/JohnDeere.git ~/JohnDeere
-cd ~/JohnDeere && ./install.sh
+git clone https://github.com/eaasxt/Farmhand.git ~/Farmhand
+cd ~/Farmhand && ./install.sh
 
 # 2. Switch to configured shell
 exec zsh
@@ -217,7 +217,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 
 ## 🔒 Enforcement Hooks
 
-The magic of JohnDeere is that agents **can't cheat**. Hooks intercept tool calls and enforce the workflow:
+The magic of Farmhand is that agents **can't cheat**. Hooks intercept tool calls and enforce the workflow:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -481,7 +481,7 @@ See [docs/troubleshooting.md](docs/troubleshooting.md) for more.
 The hook system has comprehensive test coverage:
 
 ```bash
-cd ~/JohnDeere
+cd ~/Farmhand
 python3 -m pytest tests/ -v
 
 # 88 tests covering:
@@ -577,7 +577,7 @@ Private repository - internal use only.
 
 <div align="center">
 
-**Built with 🚜 by the JohnDeere team**
+**Built with 🚜 by the Farmhand team**
 
 *Making multi-agent AI coding actually work*
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# JohnDeere v2.0.0 - Agentic VM Setup Installer
+# Farmhand v2.0.0 - Agentic VM Setup Installer
 #
 # Transforms a fresh Ubuntu VPS into a fully-configured
 # multi-agent AI coding environment.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/eaasxt/JohnDeere/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/eaasxt/Farmhand/main/install.sh | bash
 #
 #   Or with options:
 #   ./install.sh --force          # Reinstall everything
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
         --minimal) MINIMAL=true; shift ;;
         --skip-ollama) SKIP_OLLAMA=true; shift ;;
         --help|-h)
-            echo "JohnDeere v$VERSION - Agentic VM Setup"
+            echo "Farmhand v$VERSION - Agentic VM Setup"
             echo ""
             echo "Usage: ./install.sh [OPTIONS]"
             echo ""
@@ -61,7 +61,7 @@ done
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════════════╗"
 echo "║                                                                   ║"
-echo "║       🚜 JohnDeere v$VERSION - Agentic VM Setup                   ║"
+echo "║       🚜 Farmhand v$VERSION - Agentic VM Setup                   ║"
 echo "║                                                                   ║"
 echo "║   Transforming this VM into an AI coding powerhouse...           ║"
 echo "║                                                                   ║"
@@ -162,7 +162,7 @@ date -Iseconds > "$JOHNDEERE_HOME/installed_at"
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                                                                   ║${NC}"
-echo -e "${GREEN}║   🎉 JohnDeere v$VERSION installation complete!                   ║${NC}"
+echo -e "${GREEN}║   🎉 Farmhand v$VERSION installation complete!                   ║${NC}"
 echo -e "${GREEN}║                                                                   ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
 echo ""

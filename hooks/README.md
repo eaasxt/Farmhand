@@ -1,4 +1,4 @@
-# JohnDeere Hooks
+# Farmhand Hooks
 
 Enforcement scripts that intercept Claude Code tool calls to enforce multi-agent workflow.
 

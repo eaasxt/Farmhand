@@ -1,6 +1,6 @@
-# JohnDeere Quickstart Guide
+# Farmhand Quickstart Guide
 
-Get up and running with JohnDeere in 5 minutes.
+Get up and running with Farmhand in 5 minutes.
 
 ## Prerequisites
 
@@ -12,8 +12,8 @@ Get up and running with JohnDeere in 5 minutes.
 
 ```bash
 # Clone and install
-git clone https://github.com/eaasxt/JohnDeere.git ~/JohnDeere
-cd ~/JohnDeere
+git clone https://github.com/eaasxt/Farmhand.git ~/Farmhand
+cd ~/Farmhand
 ./install.sh
 ```
 
@@ -122,7 +122,7 @@ bd close <issue-id> --reason="Completed: description"
 
 ## Hooks Enforcement
 
-JohnDeere installs hooks that enforce the workflow:
+Farmhand installs hooks that enforce the workflow:
 
 | Hook | What It Does |
 |------|--------------|
@@ -165,7 +165,7 @@ Agents coordinate via MCP Agent Mail:
 ## Next Steps
 
 - Read `~/CLAUDE.md` for the complete workflow guide
-- Check `~/JohnDeere/docs/troubleshooting.md` for common issues
+- Check `~/Farmhand/docs/troubleshooting.md` for common issues
 - Explore `bv --robot-help` for graph analysis options
 
 ## Quick Reference

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verify JohnDeere v2.1.0 installation
+# Verify Farmhand v2.1.0 installation
 
 echo "=========================================="
-echo "  JohnDeere v2.1.0 Installation Verify"
+echo "  Farmhand v2.1.0 Installation Verify"
 echo "=========================================="
 echo ""
 
@@ -185,7 +185,7 @@ fi
 
 echo ""
 echo "==> Version Info..."
-printf "%-35s" "JohnDeere version"
+printf "%-35s" "Farmhand version"
 if [[ -f ~/.johndeere/version ]]; then
     echo "v$(cat ~/.johndeere/version)"
 else

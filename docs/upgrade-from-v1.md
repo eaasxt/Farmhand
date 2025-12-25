@@ -1,6 +1,6 @@
-# Upgrading from JohnDeere v1.x to v2.0.0
+# Upgrading from Farmhand v1.x to v2.0.0
 
-This guide covers upgrading existing JohnDeere installations to v2.0.0.
+This guide covers upgrading existing Farmhand installations to v2.0.0.
 
 ## What's New in v2.0.0
 
@@ -40,7 +40,7 @@ This guide covers upgrading existing JohnDeere installations to v2.0.0.
 ### Automatic Upgrade
 
 ```bash
-cd ~/JohnDeere
+cd ~/Farmhand
 git pull origin main
 ./upgrade.sh
 ```
@@ -64,8 +64,8 @@ cp ~/.zshrc ~/.johndeere/backup-manual/ 2>/dev/null || true
 cp ~/CLAUDE.md ~/.johndeere/backup-manual/
 cp -r ~/.claude/hooks ~/.johndeere/backup-manual/
 
-# 2. Pull latest JohnDeere
-cd ~/JohnDeere
+# 2. Pull latest Farmhand
+cd ~/Farmhand
 git pull origin main
 
 # 3. Run fresh install with force
@@ -198,5 +198,5 @@ v2.0.0 installs zsh as the primary shell. Bash configurations remain but are not
 
 Check the main documentation:
 - `~/CLAUDE.md` - Complete workflow guide
-- `~/JohnDeere/README.md` - Installation reference
-- `~/JohnDeere/docs/troubleshooting.md` - Common issues
+- `~/Farmhand/README.md` - Installation reference
+- `~/Farmhand/docs/troubleshooting.md` - Common issues

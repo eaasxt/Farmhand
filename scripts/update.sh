@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Update JohnDeere tools to latest versions
+# Update Farmhand tools to latest versions
 
-echo "=== Updating JohnDeere Tools ==="
+echo "=== Updating Farmhand Tools ==="
 
 # Update this repo first
 echo ""
-echo "==> Pulling latest JohnDeere repo..."
-cd ~/JohnDeere
-git pull origin main 2>/dev/null || git pull https://github.com/eaasxt/JohnDeere.git main
+echo "==> Pulling latest Farmhand repo..."
+cd ~/Farmhand
+git pull origin main 2>/dev/null || git pull https://github.com/eaasxt/Farmhand.git main
 
 # Update bd
 echo ""
@@ -41,8 +41,8 @@ sudo systemctl restart mcp-agent-mail
 echo ""
 echo "==> Updating hooks..."
 mkdir -p ~/.claude/hooks
-cp ~/JohnDeere/hooks/*.py ~/.claude/hooks/
-cp ~/JohnDeere/bin/bd-cleanup ~/.local/bin/
+cp ~/Farmhand/hooks/*.py ~/.claude/hooks/
+cp ~/Farmhand/bin/bd-cleanup ~/.local/bin/
 chmod +x ~/.claude/hooks/*.py ~/.local/bin/bd-cleanup
 
 # Regenerate settings.json with hook config
@@ -68,7 +68,7 @@ EOF
 # Update CLAUDE.md
 echo ""
 echo "==> Updating CLAUDE.md..."
-cp ~/JohnDeere/config/CLAUDE.md ~/CLAUDE.md
+cp ~/Farmhand/config/CLAUDE.md ~/CLAUDE.md
 # Re-add bearer token
 TOKEN=$(grep 'HTTP_BEARER_TOKEN=' ~/mcp_agent_mail/.env 2>/dev/null | cut -d'=' -f2)
 if [ -n "$TOKEN" ]; then

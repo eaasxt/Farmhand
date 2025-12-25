@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# JohnDeere - Phase 10: Knowledge & Vibes Workflow Layer
+# Farmhand - Phase 10: Knowledge & Vibes Workflow Layer
 #
 # Installs the structured workflow system from knowledge_and_vibes:
 # - 18 skills for common development patterns
