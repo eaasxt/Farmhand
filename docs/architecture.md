@@ -79,7 +79,7 @@ Python scripts that intercept Claude Code tool calls:
 |------|---------|--------|
 | `todowrite-interceptor.py` | TodoWrite | Blocks, suggests bd |
 | `reservation-checker.py` | Edit/Write | Requires file reservation |
-| `mcp-state-tracker.py` | MCP calls | Tracks agent state |
+| `mcp-state-tracker.py` | MCP + Read/Write/Edit | Tracks agent state + artifact trail |
 | `session-init.py` | Session start | Clears stale state |
 | `git_safety_guard.py` | Bash git | Blocks destructive commands |
 
@@ -151,6 +151,30 @@ qmd query "concept"    # Semantic search
 ubs <files>           # Security + quality scan before commit
 ```
 
+### 7. Context Engineering (v2.2.2+)
+
+Features based on context engineering research to improve agent handoff quality:
+
+**Artifact Trail Tracking:**
+- `mcp-state-tracker.py` now tracks `files_created`, `files_modified`, `files_read`
+- Enables degradation probes to verify agent work
+- Provides concrete file lists for session handoffs
+
+**Observation Masking (obs-mask):**
+```bash
+ubs . | obs-mask --label "scan"   # Store large output to artifact, return summary
+```
+- Reduces context consumption by 60-80%
+- Stores full output to `~/.claude/sessions/<id>/artifacts/`
+- Returns summary + preview for agent context
+
+**Structured Agent Mail Schemas:**
+- JSON schemas for CLAIMED, CLOSED, BLOCKED, HANDOFF messages
+- Prevents "telephone game" degradation in multi-agent messaging
+- Preserves exact values (bead IDs, file paths, test counts) through forwards
+
+See [docs/agent-mail-schemas.md](agent-mail-schemas.md) for message formats.
+
 ## Data Flow
 
 ### Agent Session Lifecycle
@@ -215,8 +239,9 @@ Agent A                     Agent B
 |------|---------|
 | `~/.claude/settings.json` | Hook configuration |
 | `~/.claude/hooks/` | Hook scripts |
-| `~/.claude/agent-state.json` | Agent state (single-agent) |
+| `~/.claude/agent-state.json` | Agent state (single-agent) with artifact trail |
 | `~/.claude/state-{NAME}.json` | Agent state (multi-agent) |
+| `~/.claude/sessions/` | Session artifacts (obs-mask outputs) |
 | `~/CLAUDE.md` | Workflow instructions |
 | `~/.config/ntm/command_palette.md` | NTM prompts |
 
@@ -232,7 +257,7 @@ Agent A                     Agent B
 
 | Path | Tools |
 |------|-------|
-| `~/.local/bin/` | bd, bd-cleanup, cass wrapper |
+| `~/.local/bin/` | bd, bd-cleanup, obs-mask, cass wrapper |
 | `/home/linuxbrew/.linuxbrew/bin/` | bv, ubs, ntm, cm, caam |
 | `~/.bun/bin/` | bun, bunx |
 
