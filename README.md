@@ -7,7 +7,7 @@
 [![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-30%2B-purple.svg)](#-what-gets-installed)
 
 *One command. 30+ tools. Multiple AI agents working in harmony.*
@@ -16,13 +16,50 @@
 
 ---
 
+## 📑 Table of Contents
+
+<details>
+<summary>Click to expand</summary>
+
+- [TL;DR](#-tldr)
+- [Why Farmhand?](#-why-farmhand)
+- [Who Is This For?](#-who-is-this-for)
+- [Quick Start](#-quick-start)
+- [Architecture](#️-architecture)
+- [What Gets Installed](#-what-gets-installed)
+- [Enforcement Hooks](#-enforcement-hooks)
+- [The Workflow](#-the-workflow)
+- [Knowledge & Vibes Framework](#-knowledge--vibes-framework)
+- [Installation Options](#-installation-options)
+- [Post-Installation](#-post-installation)
+- [How to Use Farmhand](#-how-to-use-farmhand)
+  - [Keyboard Shortcuts](#keyboard-shortcuts--navigation)
+  - [Single Agent Workflow](#single-agent-workflow)
+  - [Multi-Agent Workflow](#multi-agent-workflow)
+  - [Daily Patterns](#daily-workflow-patterns)
+  - [Common Scenarios](#handling-common-scenarios)
+- [Troubleshooting](#-troubleshooting)
+- [Testing](#-testing)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+</details>
+
+
 ## 📋 TL;DR
 
 **Farmhand** takes a bare Ubuntu VPS and installs everything you need to run multiple AI coding agents (Claude, Codex, Gemini) that can work together without stepping on each other's toes.
 
 ```bash
+# Install (15-20 min)
 git clone https://github.com/eaasxt/Farmhand.git ~/Farmhand
 cd ~/Farmhand && ./install.sh
+
+# After install, you can do this:
+ntm spawn myproject --cc=2     # Spawn 2 Claude agents
+bd ready                        # See available tasks  
+bv --robot-plan                 # Get parallel execution tracks
 ```
 
 **What makes it special:**
@@ -31,7 +68,45 @@ cd ~/Farmhand && ./install.sh
 - 📊 **Graph-based task tracking** — Dependencies, priorities, and parallel execution paths
 - 🔬 **Research-backed protocols** — 50+ papers distilled into actionable workflows
 
+> **See it in action:** The [How to Use](#-how-to-use-farmhand) section has a complete walkthrough building "CropWatch" - a smart irrigation controller - with both single and multi-agent workflows.
+
+
 ---
+
+## 🤔 Why Farmhand?
+
+### The Problem
+
+Running multiple AI coding agents on the same codebase creates chaos:
+
+```
+Agent A: *edits auth.py*
+Agent B: *also edits auth.py*
+Result: Merge conflicts, lost work, frustrated developers
+```
+
+AI agents don't naturally coordinate. They'll:
+- Edit the same files simultaneously
+- Duplicate work another agent already did
+- Skip security scans because "it looks fine"
+- Ignore your project's conventions
+
+### The Solution
+
+Farmhand enforces coordination at the tool level:
+
+```
+Agent A: *tries to edit auth.py*
+Hook: "File not reserved. Run file_reservation_paths() first."
+Agent A: *reserves auth.py*
+Agent B: *tries to edit auth.py*  
+Hook: "BLOCKED. auth.py reserved by BlueLake until 15:30."
+Result: No conflicts, clear ownership, happy developers
+```
+
+**Agents can't cheat.** The hooks intercept every file operation and enforce the workflow automatically.
+
+
 
 ## 🎯 Who Is This For?
 
@@ -67,6 +142,17 @@ cd ~/Farmhand && ./install.sh
 ---
 
 ## ⚡ Quick Start
+
+### Prerequisites Check
+
+```bash
+# Verify you meet requirements
+cat /etc/os-release | grep -E "^(ID|VERSION_ID)"  # Ubuntu 22.04+
+free -h | grep Mem                                 # 4GB+ RAM recommended
+df -h /                                            # 10GB+ disk space
+```
+
+### Installation
 
 ```bash
 # 1. Clone and install (15-20 minutes)
@@ -179,7 +265,18 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | **[qmd](https://github.com/tobi/qmd)** | Markdown semantic search with local LLM | [README](https://github.com/tobi/qmd#readme) |
 | **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | Agent messaging & file reservations | [README](https://github.com/Dicklesworthstone/mcp_agent_mail#readme) |
 
-### Dicklesworthstone Stack (8 Tools)
+### AI Coding Agents
+
+| Agent | Alias | Mode | Auth |
+|-------|-------|------|------|
+| Claude Code | `cc` | `--dangerously-skip-permissions` | OAuth |
+| Codex CLI | `cod` | `--approval-mode full-auto` | Device code |
+| Gemini CLI | `gmi` | `--yolo` | OAuth |
+
+<details>
+<summary><strong>📦 Full Tool List (click to expand)</strong></summary>
+
+#### Dicklesworthstone Stack (6 Tools)
 
 | Tool | Purpose | Docs |
 |------|---------|------|
@@ -190,15 +287,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search past agent session transcripts | [README](https://github.com/Dicklesworthstone/coding_agent_session_search#readme) |
 | **[slb](https://github.com/Dicklesworthstone/simultaneous_launch_button)** | Two-person rule for dangerous commands | [README](https://github.com/Dicklesworthstone/simultaneous_launch_button#readme) |
 
-### AI Coding Agents
-
-| Agent | Alias | Mode | Auth |
-|-------|-------|------|------|
-| Claude Code | `cc` | `--dangerously-skip-permissions` | OAuth |
-| Codex CLI | `cod` | `--approval-mode full-auto` | Device code |
-| Gemini CLI | `gmi` | `--yolo` | OAuth |
-
-### Cloud CLIs
+#### Cloud CLIs
 
 | Tool | Purpose |
 |------|---------|
@@ -207,11 +296,13 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | **supabase** | Supabase backend |
 | **vercel** | Vercel deployments |
 
-### Modern Shell
+#### Modern Shell
 
 - **zsh** with Oh My Zsh + Powerlevel10k
 - **lsd** (better ls), **bat** (better cat), **lazygit**, **fzf**, **zoxide**, **atuin**
 - **bun** + **uv** (fast JS/Python package managers)
+
+</details>
 
 ---
 
@@ -431,7 +522,6 @@ ntm attach myproject                 # Connect to session
 ```
 
 ---
----
 
 ## 🌾 How to Use Farmhand
 
@@ -439,7 +529,8 @@ This section walks you through actually using Farmhand, from your first single-a
 
 ### Keyboard Shortcuts & Navigation
 
-Master these shortcuts to work efficiently:
+<details>
+<summary><strong>🎹 Click to expand keyboard shortcuts</strong></summary>
 
 #### Terminal & Shell
 
@@ -491,6 +582,8 @@ Master these shortcuts to work efficiently:
 | `p` | Pull |
 | `?` | Show all shortcuts |
 | `q` | Quit |
+
+</details>
 
 ---
 
@@ -1025,7 +1118,7 @@ The hook system has comprehensive test coverage:
 cd ~/Farmhand
 python3 -m pytest tests/ -v
 
-# 88 tests covering:
+# 92 tests covering:
 # - TodoWrite interception
 # - Git safety guards
 # - Reservation enforcement
@@ -1049,6 +1142,9 @@ python3 -m pytest tests/ -v
 ---
 
 ## 🔗 Tool Repositories
+
+<details>
+<summary><strong>View all tool repositories and authors</strong></summary>
 
 ### Core
 
@@ -1076,37 +1172,88 @@ python3 -m pytest tests/ -v
 |------|------------|--------|
 | Knowledge & Vibes | [Mburdo/knowledge_and_vibes](https://github.com/Mburdo/knowledge_and_vibes) | Mburdo |
 
+</details>
+
 ---
 
 ## 📜 Version History
 
-### v2.1.0 (Current)
-- Knowledge & Vibes workflow layer (18 skills, 7 commands, 19 protocols)
-- Research-backed development practices
-- NTM command palette (40+ prompts)
-- Comprehensive test suite (88 tests)
-- Hook enforcement layer with escape hatch
+| Version | Date | Highlights |
+|---------|------|------------|
+| **v2.1.0** | Dec 2025 | Knowledge & Vibes workflow, 92 tests, hook enforcement, escape hatch |
+| **v2.0.0** | Nov 2025 | Dicklesworthstone stack, MCP Agent Mail, multi-agent coordination |
+| **v1.x** | Oct 2025 | Basic VM bootstrap with bd, bv, qmd, Ollama |
 
-### v2.0.0
+<details>
+<summary>Detailed changelog</summary>
+
+### v2.1.0 (December 2025)
+- Knowledge & Vibes workflow layer (18 skills, 7 commands, 19 protocols)
+- Research-backed development practices from 50+ papers
+- NTM command palette (40+ prompts)
+- Comprehensive test suite (92 tests)
+- Hook enforcement layer with `FARMHAND_SKIP_ENFORCEMENT` escape hatch
+- Automatic stale reservation cleanup
+- Heredoc-aware git safety guard
+
+### v2.0.0 (November 2025)
 - Complete restructure with Dicklesworthstone stack
 - Multi-agent coordination with MCP Agent Mail
-- Enforcement hooks layer
-- Cloud CLIs, AI agents, modern shell
+- Enforcement hooks layer (PreToolUse, PostToolUse, SessionStart)
+- Cloud CLIs (Vault, Wrangler, Supabase, Vercel)
+- AI agent aliases (cc, cod, gmi)
+- Modern shell environment
 
-### v1.x (Legacy)
+### v1.x (October 2025)
 - Basic VM bootstrap
-- bd, bv, qmd, Ollama
+- bd, bv, qmd, Ollama installation
+- Initial hook concepts
+
+</details>
 
 ---
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a bead for your change: `bd create --title="Add feature X" --type=feature`
-3. Make changes following the workflow
-4. Run tests: `python3 -m pytest tests/ -v`
-5. Run security scan: `ubs $(git diff --name-only)`
-6. Submit PR
+We welcome contributions! Farmhand uses its own workflow for development.
+
+### Quick Contribution
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/YOUR_USERNAME/Farmhand.git
+cd Farmhand
+
+# 2. Create a bead for your change
+bd init  # If not already initialized
+bd create --title="Add feature X" --type=feature
+
+# 3. Make changes following the workflow
+# (register, reserve files, edit, test, commit)
+
+# 4. Run quality gates
+python3 -m pytest tests/ -v          # 92 tests must pass
+ubs $(git diff --name-only)           # Security scan
+
+# 5. Submit PR
+```
+
+### Contribution Ideas
+
+| Area | Examples |
+|------|----------|
+| **Hooks** | New enforcement rules, better error messages |
+| **Tests** | Edge cases, integration tests |
+| **Docs** | Tutorials, troubleshooting guides |
+| **Tools** | New tool integrations, aliases |
+
+### Code Style
+
+- Python: Follow existing patterns in `hooks/`
+- Bash: POSIX-compatible, use shellcheck
+- Docs: Clear, actionable, with examples
+
+See [docs/architecture.md](docs/architecture.md) for system design details.
 
 ---
 
@@ -1121,5 +1268,9 @@ MIT License - see LICENSE file.
 **Built with 🚜 by the Farmhand team**
 
 *Making multi-agent AI coding actually work*
+
+---
+
+<sub>Last updated: December 2025 · [Report issues](https://github.com/eaasxt/Farmhand/issues) · [Discussions](https://github.com/eaasxt/Farmhand/discussions)</sub>
 
 </div>
