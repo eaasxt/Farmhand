@@ -24,7 +24,7 @@ fi
 if [[ ! -d "$K_AND_V/.claude/skills" ]]; then
     echo -e "${RED}    ERROR: knowledge_and_vibes submodule missing .claude/skills${NC}"
     echo "    Try running: git submodule update --init --recursive"
-    return 1
+    exit 1
 fi
 
 # Create target directories

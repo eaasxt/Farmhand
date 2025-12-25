@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Session Initialization Hook (SessionStart) - v2
+Session Initialization Hook (SessionStart) - v3
 ------------------------------------------------
 Handles cleanup and initialization at session start:
 - Clears stale agent state from previous sessions (ONLY for this agent)
@@ -14,8 +14,13 @@ import json
 import sys
 import os
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Escape hatch for experienced users - bypass all processing
+if os.environ.get("JOHNDEERE_SKIP_ENFORCEMENT") == "1":
+    sys.exit(0)
 
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
@@ -30,6 +35,34 @@ def get_state_file():
     else:
         # Single-agent: legacy shared state file
         return STATE_DIR / "agent-state.json"
+
+
+def cleanup_old_state_files(max_age_days=7):
+    """Remove state files older than max_age_days.
+
+    Args:
+        max_age_days: Maximum age in days before cleanup (default 7)
+
+    Returns:
+        List of cleaned up file names
+    """
+    cleaned = []
+    cutoff = time.time() - (max_age_days * 24 * 3600)
+
+    if not STATE_DIR.exists():
+        return cleaned
+
+    # Clean up old per-agent state files (state-*.json)
+    for state_file in STATE_DIR.glob("state-*.json"):
+        try:
+            if state_file.stat().st_mtime < cutoff:
+                state_file.unlink()
+                cleaned.append(state_file.name)
+        except (IOError, OSError):
+            pass  # Skip files we can't access
+
+    return cleaned
+
 
 def check_orphaned_reservations():
     """Check for stale reservations from crashed sessions in SQLite database."""
@@ -98,11 +131,18 @@ def main():
             except IOError:
                 pass
 
+    # Clean up old state files (older than 7 days)
+    cleaned_files = cleanup_old_state_files(max_age_days=7)
+
     # Check for orphaned reservations
     orphaned = check_orphaned_reservations()
 
     # Build context message
     context_parts = []
+
+    if cleaned_files:
+        context_parts.append(f"Cleaned up {len(cleaned_files)} old state file(s) (> 7 days old)")
+        context_parts.append("")
 
     if orphaned:
         context_parts.append("WARNING: Found potentially orphaned file reservations:")

@@ -26,6 +26,7 @@ Installation:
 """
 
 import json
+import os
 import re
 import sys
 
@@ -97,6 +98,10 @@ def check_destructive(command: str) -> tuple[bool, str]:
 
 
 def main():
+    # Escape hatch for experienced users - bypass all enforcement
+    if os.environ.get("JOHNDEERE_SKIP_ENFORCEMENT") == "1":
+        sys.exit(0)
+
     try:
         # Read hook input from stdin
         input_data = sys.stdin.read()

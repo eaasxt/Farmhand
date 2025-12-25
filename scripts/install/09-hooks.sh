@@ -5,31 +5,41 @@ set -euo pipefail
 # This script is called by install.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+INSTALL_HOME="${INSTALL_HOME:-$HOME}"
 
 echo "Installing enforcement hooks..."
 
 # Create directories
-mkdir -p "$HOME/.claude/hooks"
-mkdir -p "$HOME/.local/bin"
+mkdir -p "$INSTALL_HOME/.claude/hooks"
+mkdir -p "$INSTALL_HOME/.local/bin"
 
 # Copy hooks
-cp "$REPO_DIR/hooks/"*.py "$HOME/.claude/hooks/"
-chmod +x "$HOME/.claude/hooks/"*.py
+cp "$REPO_DIR/hooks/"*.py "$INSTALL_HOME/.claude/hooks/"
+chmod +x "$INSTALL_HOME/.claude/hooks/"*.py
 
 # Copy bd-cleanup utility
-cp "$REPO_DIR/bin/bd-cleanup" "$HOME/.local/bin/"
-chmod +x "$HOME/.local/bin/bd-cleanup"
+cp "$REPO_DIR/bin/bd-cleanup" "$INSTALL_HOME/.local/bin/"
+chmod +x "$INSTALL_HOME/.local/bin/bd-cleanup"
 
-# Install settings.json (expand $HOME in paths)
-SETTINGS_FILE="$HOME/.claude/settings.json"
+# Install settings.json from template with __HOME__ substitution
+SETTINGS_FILE="$INSTALL_HOME/.claude/settings.json"
+TEMPLATE_FILE="$REPO_DIR/config/claude-settings.json"
+
 if [ -f "$SETTINGS_FILE" ]; then
     echo "  Backing up existing settings.json"
     cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak"
 fi
 
-# Create settings with expanded paths
-cat > "$SETTINGS_FILE" << EOF
+if [ -f "$TEMPLATE_FILE" ]; then
+    # Use template file with __HOME__ substitution
+    sed "s|__HOME__|$INSTALL_HOME|g" "$TEMPLATE_FILE" > "$SETTINGS_FILE"
+    echo "  Installed settings.json from template with HOME=$INSTALL_HOME"
+else
+    echo "  Warning: Template not found at $TEMPLATE_FILE"
+    echo "  Generating settings.json inline..."
+    # Fallback: generate inline (for backwards compatibility)
+    cat > "$SETTINGS_FILE" << SETTINGS
 {
   "hooks": {
     "PreToolUse": [
@@ -38,7 +48,7 @@ cat > "$SETTINGS_FILE" << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/todowrite-interceptor.py",
+            "command": "$INSTALL_HOME/.claude/hooks/todowrite-interceptor.py",
             "timeout": 5
           }
         ]
@@ -48,7 +58,17 @@ cat > "$SETTINGS_FILE" << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/reservation-checker.py",
+            "command": "$INSTALL_HOME/.claude/hooks/reservation-checker.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$INSTALL_HOME/.claude/hooks/git_safety_guard.py",
             "timeout": 5
           }
         ]
@@ -60,7 +80,7 @@ cat > "$SETTINGS_FILE" << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/mcp-state-tracker.py",
+            "command": "$INSTALL_HOME/.claude/hooks/mcp-state-tracker.py",
             "timeout": 5
           }
         ]
@@ -72,7 +92,7 @@ cat > "$SETTINGS_FILE" << EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/session-init.py",
+            "command": "$INSTALL_HOME/.claude/hooks/session-init.py",
             "timeout": 10
           }
         ]
@@ -80,9 +100,25 @@ cat > "$SETTINGS_FILE" << EOF
     ]
   }
 }
-EOF
+SETTINGS
+fi
 
-echo "  Installed hooks to $HOME/.claude/hooks/"
-echo "  Installed bd-cleanup to $HOME/.local/bin/"
+echo "  Installed hooks to $INSTALL_HOME/.claude/hooks/"
+echo "  Installed bd-cleanup to $INSTALL_HOME/.local/bin/"
 echo "  Configured $SETTINGS_FILE"
+
+# Install git pre-commit hook for UBS scanning
+GIT_HOOKS_SRC="$REPO_DIR/config/git-hooks"
+if [[ -f "$GIT_HOOKS_SRC/pre-commit" ]]; then
+    # Create global git hooks directory
+    mkdir -p "$INSTALL_HOME/.config/git/hooks"
+    cp "$GIT_HOOKS_SRC/pre-commit" "$INSTALL_HOME/.config/git/hooks/"
+    chmod +x "$INSTALL_HOME/.config/git/hooks/pre-commit"
+
+    # Configure git to use the global hooks directory
+    git config --global core.hooksPath "$INSTALL_HOME/.config/git/hooks"
+    echo "  Installed UBS pre-commit hook to $INSTALL_HOME/.config/git/hooks/"
+    echo "  Configured global git hooks path"
+fi
+
 echo "Enforcement hooks installed."

@@ -11,9 +11,13 @@ Exit codes:
 """
 
 import json
+import os
 import sys
 
 def main():
+    # Escape hatch for experienced users - bypass all enforcement
+    if os.environ.get("JOHNDEERE_SKIP_ENFORCEMENT") == "1":
+        sys.exit(0)
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError as e:

@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# Git Pre-Commit Hook: UBS Security Scan
+# --------------------------------------
+# Runs UBS (Ultimate Bug Scanner) on staged files before commit.
+# Blocks commit if UBS finds issues (exit code > 0).
+#
+# Installation: Installed by JohnDeere installer to .git/hooks/pre-commit
+# Skip: SKIP_UBS=1 git commit -m "..." (for emergencies only)
+#
+
+set -e
+
+# Escape hatch for emergencies
+if [[ "${SKIP_UBS:-0}" == "1" ]]; then
+    echo "WARNING: UBS scan skipped (SKIP_UBS=1)"
+    exit 0
+fi
+
+# Check if ubs is available
+if ! command -v ubs &>/dev/null; then
+    echo "WARNING: ubs not found in PATH. Skipping security scan."
+    echo "Install: curl -sSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/main/install.sh | bash"
+    exit 0
+fi
+
+# Get staged files (only actual code files)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(py|js|ts|jsx|tsx|go|rs|java|rb|php|c|cpp|h|hpp)$' || true)
+
+if [[ -z "$STAGED" ]]; then
+    # No code files staged
+    exit 0
+fi
+
+echo "Running UBS security scan on staged files..."
+echo "$STAGED" | tr '\n' ' '
+echo ""
+
+# Run UBS on staged files
+# Note: We create a temp file list because xargs might fail with special chars
+STAGED_LIST=$(echo "$STAGED" | tr '\n' ' ')
+
+if ! ubs $STAGED_LIST; then
+    echo ""
+    echo "============================================"
+    echo "COMMIT BLOCKED: UBS found issues"
+    echo "============================================"
+    echo ""
+    echo "Fix the issues above, then:"
+    echo "  git add <files>"
+    echo "  git commit"
+    echo ""
+    echo "To skip UBS (NOT RECOMMENDED):"
+    echo "  SKIP_UBS=1 git commit -m \"...\""
+    echo ""
+    exit 1
+fi
+
+echo "UBS scan passed."
+exit 0

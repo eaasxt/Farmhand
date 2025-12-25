@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MCP Agent Mail health check every 5 minutes
+Requires=mcp-agent-mail.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30sec
+
+[Install]
+WantedBy=timers.target

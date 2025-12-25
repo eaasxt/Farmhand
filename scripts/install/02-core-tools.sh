@@ -93,10 +93,10 @@ if ! command -v qmd &>/dev/null; then
     bun install -g https://github.com/tobi/qmd
 
     # Create wrapper script in ~/.local/bin
-    cat > ~/.local/bin/qmd << 'EOF'
+    cat > ~/.local/bin/qmd << EOF
 #!/bin/bash
 # qmd - Quick Markdown Search
-exec /home/ubuntu/.bun/bin/bun /home/ubuntu/.bun/install/global/node_modules/qmd/qmd.ts "$@"
+exec "$HOME/.bun/bin/bun" "$HOME/.bun/install/global/node_modules/qmd/qmd.ts" "\$@"
 EOF
     chmod +x ~/.local/bin/qmd
 else

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook (v6 - Uses consistent state file logic)
+File Reservation Checker Hook (v7 - Fixed glob pattern matching)
 ----------------------------------------------------------------------
 Queries the MCP Agent Mail SQLite database directly for file reservations.
 
@@ -137,19 +137,67 @@ def get_active_reservations():
     return reservations
 
 def file_matches_pattern(file_path: str, pattern: str) -> bool:
-    """Check if file matches a glob pattern."""
+    """
+    Check if file matches a glob pattern, with proper ** support.
+
+    Handles:
+    - /home/user/project/** (all files under project)
+    - /home/user/project/**/*.py (all .py files under project)
+    - src/*.js (single-level wildcard)
+    - exact/path/file.py (exact match)
+    """
+    file_path = os.path.abspath(file_path)
+
+    # Handle ** patterns (match any directory depth)
     if "**" in pattern:
-        base = pattern.split("**")[0].rstrip("/")
-        if file_path.startswith(base + "/") or file_path == base:
+        # Split into prefix and suffix around **
+        parts = pattern.split("**", 1)
+        prefix = parts[0].rstrip("/")
+        suffix = parts[1].lstrip("/") if len(parts) > 1 else ""
+
+        # File must be under the prefix directory
+        if prefix:
+            if not (file_path.startswith(prefix + "/") or file_path == prefix):
+                return False
+
+        # If no suffix (e.g., "src/**"), any file under prefix matches
+        if not suffix:
             return True
-    
+
+        # Get relative path from prefix
+        if prefix:
+            rel_path = file_path[len(prefix):].lstrip("/")
+        else:
+            rel_path = file_path.lstrip("/")
+
+        # For suffix like "*.py", match the filename only
+        if "/" not in suffix:
+            return fnmatch.fnmatch(os.path.basename(file_path), suffix)
+
+        # For complex suffixes (e.g., "test/*.py"), match relative path
+        # Try direct match and also with intermediate directories
+        if fnmatch.fnmatch(rel_path, suffix):
+            return True
+        # Try matching with wildcarded intermediate paths
+        parts_to_match = suffix.split("/")
+        rel_parts = rel_path.split("/")
+        if len(rel_parts) >= len(parts_to_match):
+            # Check if suffix matches the end of rel_path
+            suffix_match = "/".join(rel_parts[-len(parts_to_match):])
+            if fnmatch.fnmatch(suffix_match, suffix):
+                return True
+        return False
+
+    # Standard fnmatch for non-** patterns (e.g., "src/*.js")
     if fnmatch.fnmatch(file_path, pattern):
         return True
-    
+
+    # Directory prefix matching (e.g., "src/*" should match "src/utils/foo.py")
+    # This handles patterns where * should match subdirectories too
     pattern_dir = pattern.rstrip("/*")
-    if file_path.startswith(pattern_dir + "/"):
+    if pattern_dir and file_path.startswith(pattern_dir + "/"):
         return True
-    
+
     return False
 
 def check_file_reserved(file_path: str, agent_name: str, reservations: list) -> tuple:
@@ -171,6 +219,10 @@ def check_file_reserved(file_path: str, agent_name: str, reservations: list) -> 
     return (False, None)  # Not reserved by anyone
 
 def main():
+    # Escape hatch for experienced users - bypass all enforcement
+    if os.environ.get("JOHNDEERE_SKIP_ENFORCEMENT") == "1":
+        sys.exit(0)
+
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -207,7 +259,7 @@ Option 1 (preferred): Set env var before launching agent:
   claude
 
 Option 2: Register via MCP:
-  register_agent(project_key="/home/ubuntu", program="claude-code", model="opus-4.5")
+  register_agent(project_key="$HOME", program="claude-code", model="opus-4.5")
 
 See ~/CLAUDE.md for details."""
             }
@@ -248,7 +300,7 @@ Agent: {agent_name}
 
 Reserve before editing:
 file_reservation_paths(
-    project_key="/home/ubuntu",
+    project_key="$HOME",
     agent_name="{agent_name}",
     paths=["{file_path}"],
     ttl_seconds=3600,

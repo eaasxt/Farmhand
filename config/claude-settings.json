@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/ubuntu/.claude/hooks/todowrite-interceptor.py",
+            "command": "__HOME__/.claude/hooks/todowrite-interceptor.py",
             "timeout": 5
           }
         ]
@@ -16,7 +16,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/ubuntu/.claude/hooks/reservation-checker.py",
+            "command": "__HOME__/.claude/hooks/reservation-checker.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOME__/.claude/hooks/git_safety_guard.py",
             "timeout": 5
           }
         ]
@@ -28,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/ubuntu/.claude/hooks/mcp-state-tracker.py",
+            "command": "__HOME__/.claude/hooks/mcp-state-tracker.py",
             "timeout": 5
           }
         ]
@@ -40,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/ubuntu/.claude/hooks/session-init.py",
+            "command": "__HOME__/.claude/hooks/session-init.py",
             "timeout": 10
           }
         ]

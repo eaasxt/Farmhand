@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# MCP Agent Mail Health Check
+# ---------------------------
+# Checks if MCP Agent Mail server is responding.
+# Restarts the service if it fails 3 consecutive times.
+#
+# Usage: Called by systemd timer (mcp-health-check.timer)
+#        Or manually: mcp-health-check
+#
+
+set -euo pipefail
+
+ENDPOINT="${MCP_AGENT_MAIL_URL:-http://127.0.0.1:8765/mcp/}"
+MAX_RETRIES=3
+RETRY_DELAY=2
+STATE_FILE="/tmp/mcp-health-check.failures"
+
+log() {
+    logger -t "mcp-health-check" "$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Read current failure count
+get_failure_count() {
+    if [[ -f "$STATE_FILE" ]]; then
+        cat "$STATE_FILE"
+    else
+        echo "0"
+    fi
+}
+
+# Update failure count
+set_failure_count() {
+    echo "$1" > "$STATE_FILE"
+}
+
+# Check if MCP is responding
+check_health() {
+    # Simple connectivity check - just see if the port is open and responding
+    if curl -sf -o /dev/null --connect-timeout 5 "$ENDPOINT" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# Main health check logic
+main() {
+    local failures
+    failures=$(get_failure_count)
+
+    for i in $(seq 1 $MAX_RETRIES); do
+        if check_health; then
+            # Success - reset failure count
+            if [[ "$failures" != "0" ]]; then
+                log "MCP Agent Mail recovered after $failures failures"
+            fi
+            set_failure_count 0
+            exit 0
+        fi
+
+        if [[ $i -lt $MAX_RETRIES ]]; then
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    # All retries failed
+    failures=$((failures + 1))
+    set_failure_count "$failures"
+
+    log "MCP Agent Mail unresponsive (failure #$failures)"
+
+    if [[ $failures -ge 3 ]]; then
+        log "MCP Agent Mail failed 3+ times, restarting service..."
+        if sudo systemctl restart mcp-agent-mail 2>/dev/null; then
+            log "MCP Agent Mail service restarted"
+            set_failure_count 0
+        else
+            log "ERROR: Failed to restart MCP Agent Mail service"
+            exit 1
+        fi
+    fi
+
+    exit 0
+}
+
+main "$@"

@@ -123,8 +123,8 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 # =============================================================================
 # Environment Variables
 # =============================================================================
-export BEADS_DB=/home/ubuntu/.beads/beads.db
-export BEADS_DIR=/home/ubuntu/.beads  # Required for bv (beads-viewer)
+export BEADS_DB="$HOME/.beads/beads.db"
+export BEADS_DIR="$HOME/.beads"  # Required for bv (beads-viewer)
 export BUN_INSTALL="$HOME/.bun"
 
 # =============================================================================
@@ -178,7 +178,7 @@ alias stats='bd stats'
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # fnm (Fast Node Manager)
-export PATH="/home/ubuntu/.local/share/fnm:$PATH"
+export PATH="$HOME/.local/share/fnm:$PATH"
 eval "$(fnm env)"
 
 # direnv

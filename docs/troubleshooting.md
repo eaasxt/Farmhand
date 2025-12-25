@@ -143,3 +143,135 @@ rm -rf ~/mcp_agent_mail ~/.beads ~/.bun
 cd ~/JohnDeere
 ./scripts/install.sh
 ```
+
+## Hook Failures
+
+### "Agent not registered" - Edit/Write blocked
+
+The reservation-checker hook blocks file edits until you register with Agent Mail:
+
+```python
+# Register first
+register_agent(
+    project_key="/home/ubuntu",
+    program="claude-code",
+    model="opus-4.5"
+)
+```
+
+Or set the AGENT_NAME environment variable before starting claude:
+
+```bash
+export AGENT_NAME="MyAgent"
+claude
+```
+
+### "File not reserved" - Edit/Write blocked
+
+The reservation-checker hook requires file reservations before editing:
+
+```python
+file_reservation_paths(
+    project_key="/home/ubuntu",
+    agent_name="<your-agent-name>",
+    paths=["path/to/file.py"],
+    ttl_seconds=3600,
+    exclusive=True,
+    reason="<issue-id>"
+)
+```
+
+### "File reserved by another agent"
+
+Another agent has the file reserved. Options:
+
+1. **Wait** - The reservation will expire based on TTL
+2. **Coordinate** - Send a message asking for release:
+   ```python
+   send_message(
+       project_key="/home/ubuntu",
+       sender_name="<your-name>",
+       to=["<other-agent>"],
+       subject="File access request",
+       body_md="Need access to <file>. Can you release?"
+   )
+   ```
+3. **Force release** - Use bd-cleanup (stale reservations only):
+   ```bash
+   bd-cleanup --list     # Check stale reservations
+   bd-cleanup --force    # Release stale (>4h old)
+   ```
+
+### TodoWrite is blocked
+
+The todowrite-interceptor hook redirects to beads:
+
+```bash
+# Instead of TodoWrite, use:
+bd create --title="Task description" --type=task
+bd update <id> --status=in_progress
+bd close <id> --reason="Done"
+bd ready  # List available work
+```
+
+### Hooks not loading
+
+1. Check settings.json exists:
+   ```bash
+   cat ~/.claude/settings.json
+   ```
+
+2. Verify hooks are executable:
+   ```bash
+   ls -la ~/.claude/hooks/
+   chmod +x ~/.claude/hooks/*.py
+   ```
+
+3. Test hooks manually:
+   ```bash
+   echo '{"tool_name":"Edit","tool_input":{"file_path":"/test.py"}}' | \
+     python ~/.claude/hooks/reservation-checker.py
+   ```
+
+4. Check for Python errors:
+   ```bash
+   python ~/.claude/hooks/reservation-checker.py < /dev/null 2>&1
+   ```
+
+### Bypassing hooks (emergency only)
+
+For experienced users who need to bypass enforcement temporarily:
+
+```bash
+export JOHNDEERE_SKIP_ENFORCEMENT=1
+claude
+# Edit files without reservations
+unset JOHNDEERE_SKIP_ENFORCEMENT
+```
+
+**Use sparingly** - hooks protect against multi-agent conflicts.
+
+### State file corruption
+
+If agent state becomes corrupted:
+
+```bash
+# Reset local state only
+bd-cleanup --reset-state
+
+# Or manually:
+rm ~/.claude/agent-state.json
+rm ~/.claude/state-*.json
+```
+
+### Health monitoring
+
+The mcp-health-check timer runs every 5 minutes. Check status:
+
+```bash
+systemctl --user status mcp-health-check.timer
+journalctl --user -u mcp-health-check -n 20
+
+# Manual health check
+mcp-health-check
+```

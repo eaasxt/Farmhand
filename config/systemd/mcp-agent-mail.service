@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/mcp_agent_mail
-Environment="PATH=/home/ubuntu/.local/bin:/home/ubuntu/.bun/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="HOME=/home/ubuntu"
-ExecStart=/bin/bash -c 'source /home/ubuntu/.local/bin/env && /home/ubuntu/mcp_agent_mail/scripts/run_server_with_token.sh'
+User=__USER__
+WorkingDirectory=__HOME__/mcp_agent_mail
+Environment="PATH=__HOME__/.local/bin:__HOME__/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=__HOME__"
+ExecStart=__HOME__/mcp_agent_mail/scripts/run_server_with_token.sh
 Restart=on-failure
 RestartSec=5
 

@@ -2,7 +2,7 @@
 # https://github.com/Dicklesworthstone/ntm
 
 # Base directory for projects
-projects_base = "/home/ubuntu/projects"
+projects_base = "~/projects"
 
 # UI Theme (mocha, macchiato, nord, latte, auto)
 # theme = "auto"

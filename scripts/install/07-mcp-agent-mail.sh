@@ -50,13 +50,53 @@ echo "==> MCP Agent Mail installed at $INSTALL_DIR"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR/../.."
 
+# Install run_server_with_token.sh script
+echo "    Installing server startup script..."
+mkdir -p "$INSTALL_DIR/scripts"
+if [[ -f "$REPO_ROOT/scripts/run_server_with_token.sh" ]]; then
+    cp "$REPO_ROOT/scripts/run_server_with_token.sh" "$INSTALL_DIR/scripts/"
+    chmod +x "$INSTALL_DIR/scripts/run_server_with_token.sh"
+    echo "    Installed run_server_with_token.sh"
+else
+    echo "    WARNING: run_server_with_token.sh not found in repo"
+fi
+
 echo "    Setting up systemd service..."
+INSTALL_USER="${SUDO_USER:-$(whoami)}"
+INSTALL_HOME="$HOME"
+
 if [[ -f "$REPO_ROOT/config/systemd/mcp-agent-mail.service" ]]; then
-    sudo cp "$REPO_ROOT/config/systemd/mcp-agent-mail.service" /etc/systemd/system/
+    # Substitute placeholders with actual user and home directory
+    sed -e "s|__USER__|$INSTALL_USER|g" \
+        -e "s|__HOME__|$INSTALL_HOME|g" \
+        "$REPO_ROOT/config/systemd/mcp-agent-mail.service" | \
+        sudo tee /etc/systemd/system/mcp-agent-mail.service > /dev/null
     sudo systemctl daemon-reload
     sudo systemctl enable mcp-agent-mail
     sudo systemctl start mcp-agent-mail 2>/dev/null || true
     echo "    MCP Agent Mail service enabled"
 else
     echo "    WARNING: systemd service file not found"
+fi
+
+# Install health check script and systemd timer
+echo "    Setting up health monitoring..."
+if [[ -f "$REPO_ROOT/bin/mcp-health-check" ]]; then
+    cp "$REPO_ROOT/bin/mcp-health-check" "$HOME/.local/bin/"
+    chmod +x "$HOME/.local/bin/mcp-health-check"
+
+    if [[ -f "$REPO_ROOT/config/systemd/mcp-health-check.service" ]]; then
+        sed -e "s|__USER__|$INSTALL_USER|g" \
+            -e "s|__HOME__|$INSTALL_HOME|g" \
+            "$REPO_ROOT/config/systemd/mcp-health-check.service" | \
+            sudo tee /etc/systemd/system/mcp-health-check.service > /dev/null
+    fi
+
+    if [[ -f "$REPO_ROOT/config/systemd/mcp-health-check.timer" ]]; then
+        sudo cp "$REPO_ROOT/config/systemd/mcp-health-check.timer" /etc/systemd/system/
+        sudo systemctl daemon-reload
+        sudo systemctl enable mcp-health-check.timer
+        sudo systemctl start mcp-health-check.timer 2>/dev/null || true
+        echo "    Health check timer enabled (runs every 5 min)"
+    fi
 fi
