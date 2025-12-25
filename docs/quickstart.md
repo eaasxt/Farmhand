@@ -128,7 +128,7 @@ Farmhand installs hooks that enforce the workflow:
 |------|--------------|
 | `todowrite-interceptor.py` | Blocks TodoWrite, suggests `bd` |
 | `reservation-checker.py` | Blocks edits without file reservation |
-| `mcp-state-tracker.py` | Tracks agent state |
+| `mcp-state-tracker.py` | Tracks agent state + artifact trail (files created/modified/read) |
 | `session-init.py` | Cleans stale state on startup |
 | `git_safety_guard.py` | Blocks destructive git commands |
 
