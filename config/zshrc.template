@@ -140,7 +140,8 @@ eval "$(zoxide init zsh)"
 eval "$(atuin init zsh)"
 
 # ntm (Named Tmux Manager)
-command -v ntm &>/dev/null && eval "$(ntm init zsh)"
+# ntm init disabled - outputs unexpanded Go templates causing parse errors
+# command -v ntm &>/dev/null && eval "$(ntm init zsh)"
 
 # =============================================================================
 # Vibe Mode Aliases (AI Agents)
