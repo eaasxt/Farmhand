@@ -2,7 +2,8 @@
 # 08-shell-config.sh - Shell configuration
 # zsh, oh-my-zsh, powerlevel10k, plugins, modern CLI tools
 
-set -euo pipefail
+# NOTE: Dont use set -e - sourced by install.sh
+# set -euo pipefail
 
 echo "[8/9] Configuring shell environment..."
 

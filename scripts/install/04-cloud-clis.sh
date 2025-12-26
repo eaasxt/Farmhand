@@ -2,7 +2,8 @@
 # 04-cloud-clis.sh - Cloud CLI tools
 # vault, wrangler, supabase, vercel
 
-set -euo pipefail
+# NOTE: Dont use set -e - sourced by install.sh
+# set -euo pipefail
 
 echo "[5/9] Installing Cloud CLIs..."
 

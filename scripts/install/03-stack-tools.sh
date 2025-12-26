@@ -2,7 +2,8 @@
 # 03-stack-tools.sh - Dicklesworthstone Stack (8 tools)
 # ubs, ntm, cm, caam, slb, cass, ast-grep
 
-set -euo pipefail
+# NOTE: Don't use set -e here - we're sourced by install.sh and want graceful failures
+# set -euo pipefail
 
 echo "[3/9] Installing Dicklesworthstone Stack..."
 
