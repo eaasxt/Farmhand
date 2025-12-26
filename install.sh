@@ -176,25 +176,40 @@ else
 fi
 
 # Run installation phases
-source "$SCRIPT_DIR/scripts/install/01-system-deps.sh"
-source "$SCRIPT_DIR/scripts/install/02-core-tools.sh"
-source "$SCRIPT_DIR/scripts/install/03-stack-tools.sh"
+# Disable set -e for sourced scripts to allow graceful failures
+# Each phase can have errors without killing the entire install
+
+run_phase() {
+    local script="$1"
+    local name="$2"
+    set +e
+    source "$script"
+    local rc=$?
+    set -e
+    if [[ $rc -ne 0 ]]; then
+        echo -e "${YELLOW}    WARNING: $name completed with errors (exit $rc)${NC}"
+    fi
+}
+
+run_phase "$SCRIPT_DIR/scripts/install/01-system-deps.sh" "System dependencies"
+run_phase "$SCRIPT_DIR/scripts/install/02-core-tools.sh" "Core tools"
+run_phase "$SCRIPT_DIR/scripts/install/03-stack-tools.sh" "Stack tools"
 
 # AI agents before cloud CLIs (Node.js needed for wrangler/vercel version checks)
-source "$SCRIPT_DIR/scripts/install/05-ai-agents.sh"
+run_phase "$SCRIPT_DIR/scripts/install/05-ai-agents.sh" "AI agents"
 
 if [[ "$MINIMAL" != true ]]; then
-    source "$SCRIPT_DIR/scripts/install/04-cloud-clis.sh"
+    run_phase "$SCRIPT_DIR/scripts/install/04-cloud-clis.sh" "Cloud CLIs"
 fi
 
 if [[ "$SKIP_OLLAMA" != true ]]; then
-    source "$SCRIPT_DIR/scripts/install/06-ollama.sh"
+    run_phase "$SCRIPT_DIR/scripts/install/06-ollama.sh" "Ollama"
 fi
 
-source "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh"
-source "$SCRIPT_DIR/scripts/install/08-shell-config.sh"
-source "$SCRIPT_DIR/scripts/install/09-hooks.sh"
-source "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh"
+run_phase "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh" "MCP Agent Mail"
+run_phase "$SCRIPT_DIR/scripts/install/08-shell-config.sh" "Shell config"
+run_phase "$SCRIPT_DIR/scripts/install/09-hooks.sh" "Enforcement hooks"
+run_phase "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh" "Knowledge & Vibes"
 
 # Record installation
 mkdir -p "$FARMHAND_HOME"
