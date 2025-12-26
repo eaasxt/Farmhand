@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# NOTE: Don't use set -e here - we're sourced by install.sh and want graceful failures
+# set -euo pipefail
 
 # Install enforcement hooks for Claude Code
 # This script is called by install.sh

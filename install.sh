@@ -165,6 +165,16 @@ echo ""
 mkdir -p ~/.local/bin
 export PATH="$HOME/.local/bin:$PATH"
 
+# Initialize git submodules (knowledge_and_vibes requires this)
+echo -e "${BLUE}[Pre-flight] Initializing git submodules...${NC}"
+if [[ -d "$SCRIPT_DIR/.git" ]]; then
+    git -C "$SCRIPT_DIR" submodule update --init --recursive 2>/dev/null || {
+        echo -e "${YELLOW}    WARNING: Could not initialize submodules (may need manual init)${NC}"
+    }
+else
+    echo "    Skipping submodule init (not a git repo)"
+fi
+
 # Run installation phases
 source "$SCRIPT_DIR/scripts/install/01-system-deps.sh"
 source "$SCRIPT_DIR/scripts/install/02-core-tools.sh"

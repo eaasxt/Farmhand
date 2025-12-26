@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# NOTE: Dont use set -e - sourced by install.sh
+# set -euo pipefail
 
 # Install bd (beads), bv (beads-viewer), qmd
 
