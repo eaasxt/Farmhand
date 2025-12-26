@@ -12,14 +12,46 @@ echo ""
 PASS=0
 FAIL=0
 WARN=0
+REFRESH=0
+
+# Known installation paths for tools that may not be in PATH during fresh install
+declare -A KNOWN_PATHS=(
+    ["bun"]="$HOME/.bun/bin/bun"
+    ["codex"]="$HOME/.bun/bin/codex"
+    ["wrangler"]="$HOME/.bun/bin/wrangler"
+    ["vercel"]="$HOME/.bun/bin/vercel"
+    ["gemini"]="$HOME/.bun/bin/gemini"
+    ["ntm"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/ntm"
+    ["caam"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/caam"
+    ["node"]="$HOME/.local/bin/node"
+    ["npm"]="$HOME/.local/bin/npm"
+    ["supabase"]="/home/linuxbrew/.linuxbrew/bin/supabase"
+)
+
+# Check if binary exists at known path (supports globs)
+find_at_known_path() {
+    local tool="$1"
+    local pattern="${KNOWN_PATHS[$tool]:-}"
+    [[ -z "$pattern" ]] && return 1
+    # Use compgen to expand globs safely
+    for f in $pattern; do
+        [[ -x "$f" ]] && return 0
+    done
+    return 1
+}
 
 check() {
     local name="$1"
     local cmd="$2"
+    local tool="${3:-}"  # Optional: tool name for path lookup
     printf "%-35s" "$name"
     if eval "$cmd" &>/dev/null; then
         echo "[OK]"
         PASS=$((PASS + 1))
+    elif [[ -n "$tool" ]] && find_at_known_path "$tool"; then
+        echo "[OK] (shell refresh needed)"
+        PASS=$((PASS + 1))
+        REFRESH=$((REFRESH + 1))
     else
         echo "[FAIL]"
         FAIL=$((FAIL + 1))
@@ -29,10 +61,15 @@ check() {
 check_optional() {
     local name="$1"
     local cmd="$2"
+    local tool="${3:-}"  # Optional: tool name for path lookup
     printf "%-35s" "$name"
     if eval "$cmd" &>/dev/null; then
         echo "[OK]"
         PASS=$((PASS + 1))
+    elif [[ -n "$tool" ]] && find_at_known_path "$tool"; then
+        echo "[OK] (shell refresh needed)"
+        PASS=$((PASS + 1))
+        REFRESH=$((REFRESH + 1))
     else
         echo "[SKIP]"
         WARN=$((WARN + 1))
@@ -60,30 +97,30 @@ echo ""
 echo "==> Dicklesworthstone Stack..."
 check "ast-grep (UBS JS/TS)" "command -v ast-grep || command -v sg"
 check "ubs (bug scanner)" "command -v ubs"
-check "ntm (tmux manager)" "command -v ntm"
+check "ntm (tmux manager)" "command -v ntm" "ntm"
 check "cm (cass memory)" "command -v cm"
-check "caam (account manager)" "command -v caam"
+check "caam (account manager)" "command -v caam" "caam"
 check_optional "slb (launch button)" "command -v slb"
 check "cass (session search)" "command -v cass"
 
 echo ""
 echo "==> Cloud CLIs..."
 check_optional "vault" "command -v vault"
-check_optional "wrangler" "command -v wrangler"
-check_optional "supabase" "command -v supabase"
-check_optional "vercel" "command -v vercel"
+check_optional "wrangler" "command -v wrangler" "wrangler"
+check_optional "supabase" "command -v supabase" "supabase"
+check_optional "vercel" "command -v vercel" "vercel"
 
 echo ""
 echo "==> AI Coding Agents..."
 check "claude" "command -v claude"
-check "codex" "command -v codex"
-check_optional "gemini" "command -v gemini"
+check "codex" "command -v codex" "codex"
+check_optional "gemini" "command -v gemini" "gemini"
 
 echo ""
 echo "==> Runtime Dependencies..."
-check "bun" "command -v bun"
+check "bun" "command -v bun" "bun"
 check "uv" "command -v uv"
-check "node" "command -v node"
+check "node" "command -v node" "node"
 check "ollama" "command -v ollama"
 check "zsh" "command -v zsh"
 
@@ -284,7 +321,12 @@ done
 
 echo ""
 echo "=========================================="
-echo "  Results: $PASS passed, $FAIL failed, $WARN skipped"
+if [[ $REFRESH -gt 0 ]]; then
+    echo "  Results: $PASS passed, $FAIL failed, $WARN skipped"
+    echo "           ($REFRESH tools need shell refresh)"
+else
+    echo "  Results: $PASS passed, $FAIL failed, $WARN skipped"
+fi
 echo "=========================================="
 
 if [[ $FAIL -gt 0 ]]; then
@@ -300,11 +342,20 @@ if [[ $FAIL -gt 0 ]]; then
 else
     echo ""
     echo "All required checks passed!"
+    if [[ $REFRESH -gt 0 ]]; then
+        echo ""
+        echo "NOTE: $REFRESH tools are installed but not in current PATH."
+        echo "      Run 'exec zsh' to refresh your shell environment."
+    fi
+    echo ""
+    echo "Next steps:"
+    echo "  1. exec zsh              # Switch to new shell (REQUIRED)"
+    echo "  2. claude                # Authenticate Claude Code"
+    echo "  3. codex login           # Authenticate Codex (optional)"
     echo ""
     echo "Quick start:"
-    echo "  1. exec zsh              # Switch to new shell"
-    echo "  2. bd ready              # See available work"
-    echo "  3. ntm palette           # Command palette"
+    echo "  bd ready                 # See available work"
+    echo "  ntm palette              # Command palette"
     echo ""
     echo "Slash commands (in Claude):"
     echo "  /prime      # Start session, register, claim work"
