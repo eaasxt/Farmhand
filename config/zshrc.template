@@ -140,7 +140,7 @@ eval "$(zoxide init zsh)"
 eval "$(atuin init zsh)"
 
 # ntm (Named Tmux Manager)
-eval "$(ntm init zsh)" 2>/dev/null
+command -v ntm &>/dev/null && eval "$(ntm init zsh)"
 
 # =============================================================================
 # Vibe Mode Aliases (AI Agents)
@@ -177,10 +177,22 @@ alias stats='bd stats'
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+# =============================================================================
+# Keyboard Bindings (Delete, Home, End, Ctrl+Arrows)
+# =============================================================================
+bindkey -e                              # Use emacs key bindings base
+bindkey '^[[3~' delete-char             # Delete key
+bindkey '^[[H' beginning-of-line        # Home key
+bindkey '^[[F' end-of-line              # End key
+bindkey '^[[1;5C' forward-word          # Ctrl+Right
+bindkey '^[[1;5D' backward-word         # Ctrl+Left
+bindkey '^[[1~' beginning-of-line       # Home (alternate)
+bindkey '^[[4~' end-of-line             # End (alternate)
+
 # fnm (Fast Node Manager)
 export PATH="$HOME/.local/share/fnm:$PATH"
 eval "$(fnm env)"
 
 # direnv
-eval "$(direnv hook zsh)"
+command -v direnv &>/dev/null && eval "$(direnv hook zsh)"
 alias vim="nvim"

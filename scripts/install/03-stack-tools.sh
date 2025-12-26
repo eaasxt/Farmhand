@@ -29,6 +29,7 @@ else
     echo "    ast-grep already installed"
 fi
 
+
 # UBS (Ultimate Bug Scanner) - v5.0.0+ requires ast-grep for JS/TS
 if ! command -v ubs &>/dev/null; then
     echo "    Installing ubs..."
@@ -37,6 +38,7 @@ else
     echo "    ubs already installed: $(ubs --version 2>&1 | head -1)"
 fi
 
+
 # NTM (Named Tmux Manager)
 if ! command -v ntm &>/dev/null; then
     echo "    Installing ntm..."
@@ -44,6 +46,7 @@ if ! command -v ntm &>/dev/null; then
 else
     echo "    ntm already installed"
 fi
+
 
 # CM (CASS Memory System) - optional, don't fail install if unavailable
 if ! command -v cm &>/dev/null; then
@@ -57,6 +60,7 @@ else
     echo "    cm already installed: $(cm --version 2>&1 | head -1)"
 fi
 
+
 # CAAM (Coding Agent Account Manager) - optional, don't fail install if unavailable
 if ! command -v caam &>/dev/null; then
     echo "    Installing caam..."
@@ -69,19 +73,23 @@ else
     echo "    caam already installed"
 fi
 
+
 # SLB (Simultaneous Launch Button)
 if ! command -v slb &>/dev/null; then
-    echo "    Installing slb (building from source)..."
+    echo "    Installing slb..."
     if command -v go &>/dev/null; then
-        TEMP_DIR=$(mktemp -d)
-        git clone --depth 1 https://github.com/Dicklesworthstone/simultaneous_launch_button.git "$TEMP_DIR/slb" 2>/dev/null
-        cd "$TEMP_DIR/slb"
-        make build 2>/dev/null || go build -o slb ./cmd/slb
-        mkdir -p ~/.local/bin
-        cp slb ~/.local/bin/
-        cd - >/dev/null
-        rm -rf "$TEMP_DIR"
-        echo "    slb built and installed"
+        if go install github.com/Dicklesworthstone/slb/cmd/slb@latest 2>/dev/null; then
+            # go install puts binary in ~/go/bin, symlink to ~/.local/bin
+            if [[ -f "$HOME/go/bin/slb" ]]; then
+                mkdir -p ~/.local/bin
+                ln -sf "$HOME/go/bin/slb" ~/.local/bin/slb
+                echo "    slb installed"
+            else
+                echo "    WARNING: slb install succeeded but binary not found (continuing)"
+            fi
+        else
+            echo "    WARNING: slb installation failed (optional tool, continuing)"
+        fi
     else
         echo "    WARNING: Go not installed, skipping slb"
     fi
@@ -125,5 +133,6 @@ if ! command -v cass &>/dev/null; then
 else
     echo "    cass already installed: $(cass --version 2>&1 | head -1)"
 fi
+
 
 echo "    Stack tools complete"
