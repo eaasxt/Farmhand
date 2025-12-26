@@ -16,15 +16,27 @@ REFRESH=0
 
 # Known installation paths for tools that may not be in PATH during fresh install
 declare -A KNOWN_PATHS=(
+    # Core tools
+    ["bd"]="$HOME/.local/bin/bd"
+    ["bv"]="$HOME/.local/bin/bv"
+    ["qmd"]="$HOME/.local/bin/qmd"
+    ["claude"]="$HOME/.local/bin/claude /home/linuxbrew/.linuxbrew/bin/claude"
+    # Stack tools
+    ["ubs"]="$HOME/.local/bin/ubs"
+    ["cm"]="$HOME/.local/bin/cm"
+    ["cass"]="$HOME/.local/bin/cass"
+    ["ntm"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/ntm"
+    ["caam"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/caam"
+    # Runtime
     ["bun"]="$HOME/.bun/bin/bun"
+    ["uv"]="$HOME/.local/bin/uv"
+    ["node"]="$HOME/.local/bin/node"
+    ["npm"]="$HOME/.local/bin/npm"
+    # Cloud CLIs
     ["codex"]="$HOME/.bun/bin/codex"
     ["wrangler"]="$HOME/.bun/bin/wrangler"
     ["vercel"]="$HOME/.bun/bin/vercel"
     ["gemini"]="$HOME/.bun/bin/gemini"
-    ["ntm"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/ntm"
-    ["caam"]="$HOME/.local/share/fnm/node-versions/*/installation/bin/caam"
-    ["node"]="$HOME/.local/bin/node"
-    ["npm"]="$HOME/.local/bin/npm"
     ["supabase"]="/home/linuxbrew/.linuxbrew/bin/supabase"
 )
 
