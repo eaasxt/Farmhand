@@ -229,7 +229,7 @@ mkdir -p "$FARMHAND_HOME"
 echo "$FARMHAND_VERSION" > "$FARMHAND_HOME/version"
 date -Iseconds > "$FARMHAND_HOME/installed_at"
 
-# Success Banner - Barn doors open!
+# Success Banner
 echo ""
 echo -e "${GREEN}"
 cat << 'SUCCESS_BARN'
@@ -242,10 +242,7 @@ cat << 'SUCCESS_BARN'
        ▄▄██▀▀                                                        ▀▀██▄▄
    ████████████████████████████████████████████████████████████████████████████
 
-                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                            ┃    F A R M H A N D      ┃
-                            ┃        R E A D Y        ┃
-                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                                    R E A D Y !
 
    ╔═════════╗╔═════════╗          ▓▓▓▓▓▓▓▓▓▓▓▓          ╔═════════╗╔═════════╗
    ║ ╲     ╱ ║║ ╲     ╱ ║          ▓▓▓▓▓▓▓▓▓▓▓▓          ║ ╲     ╱ ║║ ╲     ╱ ║
