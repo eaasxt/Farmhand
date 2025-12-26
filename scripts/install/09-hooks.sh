@@ -39,6 +39,7 @@ fi
 if [ -f "$TEMPLATE_FILE" ]; then
     # Use template file with __HOME__ substitution
     sed "s|__HOME__|$INSTALL_HOME|g" "$TEMPLATE_FILE" > "$SETTINGS_FILE"
+    chmod 600 "$SETTINGS_FILE"  # Secure permissions - may contain sensitive hook config
     echo "  Installed settings.json from template with HOME=$INSTALL_HOME"
 else
     echo "  Warning: Template not found at $TEMPLATE_FILE"
@@ -106,6 +107,7 @@ else
   }
 }
 SETTINGS
+    chmod 600 "$SETTINGS_FILE"  # Secure permissions
 fi
 
 echo "  Installed hooks to $INSTALL_HOME/.claude/hooks/"
