@@ -1,33 +1,18 @@
 #!/usr/bin/env bash
 # 05-ai-agents.sh - AI Coding Agents
 # Claude Code (via homebrew), Codex CLI, Gemini CLI
-# Also installs Node.js via fnm for Codex compatibility
+# Node.js is installed earlier in 02-core-tools.sh
 
 set -euo pipefail
 
-echo "[4/9] Installing AI Coding Agents..."
+echo "[5/9] Installing AI Coding Agents..."
 
-# Node.js via fnm (needed for Codex)
+# Verify Node.js is available (installed in 02-core-tools.sh)
 if ! command -v node &>/dev/null; then
-    echo "    Installing Node.js via fnm..."
-    # Install fnm
-    curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
-
-    # Setup fnm and install node
-    export PATH="$HOME/.local/share/fnm:$PATH"
-    eval "$(fnm env --shell bash)"
-    fnm install --lts
-    fnm default lts-latest
-
-    # Create symlinks in ~/.local/bin for easy access
-    mkdir -p ~/.local/bin
-    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/node" ~/.local/bin/node
-    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/npm" ~/.local/bin/npm
-    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/npx" ~/.local/bin/npx
-
-    echo "    Node.js installed: $(node --version)"
+    echo "    ERROR: Node.js not found. Should have been installed in 02-core-tools.sh"
+    exit 1
 else
-    echo "    Node.js already installed: $(node --version)"
+    echo "    Node.js available: $(node --version)"
 fi
 
 # Claude Code

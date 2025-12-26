@@ -131,4 +131,47 @@ else
     echo "==> Claude Code already installed"
 fi
 
+# ============================================
+# Node.js via fnm (needed for cloud CLIs and Codex)
+# ============================================
+if ! command -v node &>/dev/null; then
+    echo "==> Installing Node.js via fnm..."
+    # Install fnm
+    curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+
+    # Setup fnm and install node
+    export PATH="$HOME/.local/share/fnm:$PATH"
+    eval "$(fnm env --shell bash)"
+    fnm install --lts
+    fnm default lts-latest
+
+    # Create symlinks in ~/.local/bin for easy access
+    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/node" ~/.local/bin/node
+    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/npm" ~/.local/bin/npm
+    ln -sf "$HOME/.local/share/fnm/node-versions/$(fnm current)/installation/bin/npx" ~/.local/bin/npx
+
+    echo "    Node.js installed: $(~/.local/bin/node --version)"
+else
+    echo "==> Node.js already installed: $(node --version)"
+fi
+
+# ============================================
+# Go (needed for slb - Simultaneous Launch Button)
+# ============================================
+if ! command -v go &>/dev/null; then
+    echo "==> Installing Go..."
+    if command -v brew &>/dev/null; then
+        brew install go
+        echo "    Go installed via Homebrew: $(go version)"
+    else
+        # Install from official tarball
+        GO_VERSION="1.23.4"
+        curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | sudo tar -C /usr/local -xzf -
+        export PATH=$PATH:/usr/local/go/bin
+        echo "    Go installed: $(go version)"
+    fi
+else
+    echo "==> Go already installed: $(go version)"
+fi
+
 echo "==> Tools installed"
