@@ -44,18 +44,26 @@ else
     echo "    ntm already installed"
 fi
 
-# CM (CASS Memory System)
+# CM (CASS Memory System) - optional, don't fail install if unavailable
 if ! command -v cm &>/dev/null; then
     echo "    Installing cm..."
-    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/main/install.sh | bash -s -- --easy-mode
+    if curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/main/install.sh | bash -s -- --easy-mode 2>/dev/null; then
+        echo "    cm installed"
+    else
+        echo "    WARNING: cm installation failed (optional tool, continuing)"
+    fi
 else
     echo "    cm already installed: $(cm --version 2>&1 | head -1)"
 fi
 
-# CAAM (Coding Agent Account Manager)
+# CAAM (Coding Agent Account Manager) - optional, don't fail install if unavailable
 if ! command -v caam &>/dev/null; then
     echo "    Installing caam..."
-    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/coding_agent_account_manager/main/install.sh | bash -s -- --easy-mode
+    if curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/coding_agent_account_manager/main/install.sh | bash -s -- --easy-mode 2>/dev/null; then
+        echo "    caam installed"
+    else
+        echo "    WARNING: caam installation failed (optional tool, continuing)"
+    fi
 else
     echo "    caam already installed"
 fi
@@ -80,29 +88,39 @@ else
     echo "    slb already installed"
 fi
 
-# CASS (Coding Agent Session Search) - Docker wrapper for GLIBC compatibility
+# CASS (Coding Agent Session Search) - optional, requires GLIBC 2.39+
 if ! command -v cass &>/dev/null; then
-    echo "    Installing cass (Docker wrapper for Ubuntu 22.04 compatibility)..."
+    echo "    Installing cass..."
 
-    # Download binary to /opt/cass
-    sudo mkdir -p /opt/cass
-    TEMP_FILE=$(mktemp)
-    curl -fsSL "https://github.com/Dicklesworthstone/coding_agent_session_search/releases/latest/download/coding-agent-search-x86_64-unknown-linux-gnu.tar.xz" -o "$TEMP_FILE"
-    tar -xf "$TEMP_FILE" -C /tmp
-    sudo cp /tmp/cass /opt/cass/cass 2>/dev/null || sudo cp /tmp/coding-agent-search-x86_64-unknown-linux-gnu/cass /opt/cass/cass
-    sudo chmod +x /opt/cass/cass
-    rm -f "$TEMP_FILE"
+    # Try to download and install binary
+    if sudo mkdir -p /opt/cass 2>/dev/null; then
+        TEMP_FILE=$(mktemp)
+        if curl -fsSL "https://github.com/Dicklesworthstone/coding_agent_session_search/releases/latest/download/coding-agent-search-x86_64-unknown-linux-gnu.tar.xz" -o "$TEMP_FILE" 2>/dev/null; then
+            tar -xf "$TEMP_FILE" -C /tmp 2>/dev/null || true
+            if sudo cp /tmp/cass /opt/cass/cass 2>/dev/null || sudo cp /tmp/coding-agent-search-x86_64-unknown-linux-gnu/cass /opt/cass/cass 2>/dev/null; then
+                sudo chmod +x /opt/cass/cass
 
-    # Copy wrapper script from repo
-    _SCRIPT_DIR_03="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    mkdir -p ~/.local/bin
-    cp "$_SCRIPT_DIR_03/../../bin/cass" ~/.local/bin/cass
-    chmod +x ~/.local/bin/cass
+                # Copy wrapper script from repo
+                _SCRIPT_DIR_03="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                mkdir -p ~/.local/bin
+                if [ -f "$_SCRIPT_DIR_03/../../bin/cass" ]; then
+                    cp "$_SCRIPT_DIR_03/../../bin/cass" ~/.local/bin/cass
+                    chmod +x ~/.local/bin/cass
+                fi
 
-    # Create data directory
-    mkdir -p ~/.local/share/coding-agent-search
-
-    echo "    cass installed with Docker wrapper"
+                # Create data directory
+                mkdir -p ~/.local/share/coding-agent-search
+                echo "    cass installed"
+            else
+                echo "    WARNING: cass binary extraction failed (optional tool, continuing)"
+            fi
+        else
+            echo "    WARNING: cass download failed (optional tool, continuing)"
+        fi
+        rm -f "$TEMP_FILE"
+    else
+        echo "    WARNING: cass installation failed (optional tool, continuing)"
+    fi
 else
     echo "    cass already installed: $(cass --version 2>&1 | head -1)"
 fi

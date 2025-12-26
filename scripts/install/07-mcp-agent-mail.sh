@@ -3,6 +3,11 @@ set -euo pipefail
 
 # Install MCP Agent Mail server
 
+# IMPORTANT: Capture script directory BEFORE any cd commands
+# BASH_SOURCE may be relative, so resolve it while we're still in the right directory
+_SCRIPT_DIR_07="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT_07="$(dirname "$(dirname "$_SCRIPT_DIR_07")")"
+
 INSTALL_DIR="$HOME/mcp_agent_mail"
 
 echo "==> Installing MCP Agent Mail..."
@@ -46,9 +51,7 @@ echo "$TOKEN" > /tmp/mcp_agent_mail_token
 
 echo "==> MCP Agent Mail installed at $INSTALL_DIR"
 
-# Set up systemd service
-_SCRIPT_DIR_07="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_REPO_ROOT_07="$_SCRIPT_DIR_07/../.."
+# Set up systemd service (using _SCRIPT_DIR_07 and _REPO_ROOT_07 defined at top)
 
 # Install run_server_with_token.sh script
 echo "    Installing server startup script..."

@@ -154,4 +154,23 @@ if [ -f "$INSTALL_HOME/.beads/beads.db" ]; then
     chmod 600 "$INSTALL_HOME/.beads/beads.db"
 fi
 
+# Install CLAUDE.md to home directory
+echo "  Installing CLAUDE.md..."
+if [ -f "$_REPO_DIR_09/config/CLAUDE.md" ]; then
+    cp "$_REPO_DIR_09/config/CLAUDE.md" "$INSTALL_HOME/CLAUDE.md"
+    echo "  Installed ~/CLAUDE.md"
+else
+    echo "  Warning: CLAUDE.md not found in repo"
+fi
+
+# Install NTM command palette
+echo "  Installing NTM command palette..."
+mkdir -p "$INSTALL_HOME/.config/ntm"
+if [ -f "$_REPO_DIR_09/config/ntm/command_palette.md" ]; then
+    cp "$_REPO_DIR_09/config/ntm/command_palette.md" "$INSTALL_HOME/.config/ntm/"
+    echo "  Installed ~/.config/ntm/command_palette.md"
+else
+    echo "  Warning: NTM command palette not found in repo"
+fi
+
 echo "Enforcement hooks installed."
