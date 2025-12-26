@@ -10,19 +10,17 @@ echo "[3/9] Installing Dicklesworthstone Stack..."
 if ! command -v ast-grep &>/dev/null && ! command -v sg &>/dev/null; then
     echo "    Installing ast-grep (required for UBS JS/TS scanning)..."
 
-    # Try cargo first (most reliable)
-    if command -v cargo &>/dev/null; then
-        cargo install ast-grep --locked 2>/dev/null && echo "    ast-grep installed via cargo"
-    # Try Homebrew
-    elif command -v brew &>/dev/null; then
+    # Try Homebrew first (most reliable - bun blocks postinstall scripts)
+    if command -v brew &>/dev/null; then
         brew install ast-grep 2>/dev/null && echo "    ast-grep installed via Homebrew"
-    # Try npm/bun
-    elif command -v bun &>/dev/null; then
-        bun install -g @ast-grep/cli 2>/dev/null && echo "    ast-grep installed via bun"
+    # Try cargo
+    elif command -v cargo &>/dev/null; then
+        cargo install ast-grep --locked 2>/dev/null && echo "    ast-grep installed via cargo"
+    # Try npm (bun blocks postinstall scripts which ast-grep needs)
     elif command -v npm &>/dev/null; then
         npm install -g @ast-grep/cli 2>/dev/null && echo "    ast-grep installed via npm"
     else
-        echo "    ERROR: Cannot install ast-grep. Install cargo, brew, or npm first."
+        echo "    ERROR: Cannot install ast-grep. Install brew, cargo, or npm first."
         echo "    ast-grep is REQUIRED for UBS v5.0.0 JavaScript/TypeScript scanning."
         exit 1
     fi
@@ -33,7 +31,7 @@ fi
 # UBS (Ultimate Bug Scanner) - v5.0.0+ requires ast-grep for JS/TS
 if ! command -v ubs &>/dev/null; then
     echo "    Installing ubs..."
-    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/master/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/ultimate_bug_scanner/master/install.sh | bash -s -- --easy-mode
 else
     echo "    ubs already installed: $(ubs --version 2>&1 | head -1)"
 fi

@@ -10,14 +10,16 @@
 # - Protocol documentation
 #
 
-K_AND_V="$SCRIPT_DIR/vendor/knowledge_and_vibes"
+# Use local variable to avoid clobbering parent's SCRIPT_DIR when sourced
+_SCRIPT_DIR_10="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+K_AND_V="$_SCRIPT_DIR_10/vendor/knowledge_and_vibes"
 
 echo -e "${BLUE}[10/10] Installing Knowledge & Vibes workflow...${NC}"
 
 # Ensure submodule is initialized
 if [[ ! -d "$K_AND_V/.claude" ]]; then
     echo "    Initializing submodule..."
-    git -C "$SCRIPT_DIR" submodule update --init --recursive
+    git -C "$_SCRIPT_DIR_10" submodule update --init --recursive
 fi
 
 # Verify submodule has expected content
@@ -52,9 +54,8 @@ cp -r "$K_AND_V/templates/"* ~/templates/
 
 # Copy AGENTS.md template (for multi-agent coordination)
 echo "    Installing AGENTS.md template..."
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-if [[ -f "$REPO_ROOT/config/AGENTS.md" ]]; then
-    cp "$REPO_ROOT/config/AGENTS.md" ~/templates/AGENTS.md
+if [[ -f "$_SCRIPT_DIR_10/config/AGENTS.md" ]]; then
+    cp "$_SCRIPT_DIR_10/config/AGENTS.md" ~/templates/AGENTS.md
     echo "    Template at ~/templates/AGENTS.md (copy to project roots)"
 fi
 
