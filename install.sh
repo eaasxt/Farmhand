@@ -161,9 +161,24 @@ fi
 
 echo ""
 
-# Ensure ~/.local/bin exists and is in PATH
-mkdir -p ~/.local/bin
-export PATH="$HOME/.local/bin:$PATH"
+# Set up comprehensive PATH before any installations
+# This ensures all tools are findable throughout the install process
+mkdir -p ~/.local/bin ~/.bun/bin ~/.cargo/bin
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
+
+# Function to refresh PATH after each phase (picks up newly installed tools)
+refresh_path() {
+    export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
+    # Source Homebrew if available
+    if [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" 2>/dev/null || true
+    fi
+    # Source fnm if available (for Node.js)
+    if command -v fnm &>/dev/null; then
+        eval "$(fnm env --shell bash)" 2>/dev/null || true
+    fi
+}
 
 # Initialize git submodules (knowledge_and_vibes requires this)
 echo -e "${BLUE}[Pre-flight] Initializing git submodules...${NC}"
@@ -182,10 +197,13 @@ fi
 run_phase() {
     local script="$1"
     local name="$2"
+    echo -e "${BLUE}[Phase] $name${NC}"
     set +e
     source "$script"
     local rc=$?
     set -e
+    # Refresh PATH to pick up newly installed tools
+    refresh_path
     if [[ $rc -ne 0 ]]; then
         echo -e "${YELLOW}    WARNING: $name completed with errors (exit $rc)${NC}"
     fi
