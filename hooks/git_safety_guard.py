@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-ACFS Git Safety Guard - Claude Code PreToolUse Hook
+ACFS Git Safety Guard - Claude Code PreToolUse Hook (v2 - Improved error messages)
 
 Blocks destructive git/filesystem commands before execution to prevent
 accidental data loss. Integrates with Claude Code's hook system.
+
+v2 Changes (Farmhand-d2t):
+- Error messages now suggest safe alternatives
+- Links to troubleshooting docs
+- Better explanation of why command is blocked
 
 Source: Adapted from misc_coding_agent_tips_and_scripts
 
@@ -43,39 +48,60 @@ SAFE_PATTERNS = [
     r"rm -rf \${TMPDIR",          # Temp directory cleanup (alternate syntax)
 ]
 
-# Patterns that should be BLOCKED
+# Patterns that should be BLOCKED with (pattern, reason, safe_alternative)
 DESTRUCTIVE_PATTERNS = [
     # Git: Discard uncommitted changes
-    (r"git checkout --\s", "Permanently discards uncommitted changes to tracked files"),
-    (r"git checkout\s+\.(?:\s*$|\s*[;&|])", "Discards all uncommitted changes in current directory"),
-    (r"git restore\s+(?!--staged)", "Discards uncommitted changes (use --staged to only unstage)"),
+    (r"git checkout --\s",
+     "Permanently discards uncommitted changes to tracked files",
+     "git stash  # Save changes temporarily instead"),
+    (r"git checkout\s+\.(?:\s*$|\s*[;&|])",
+     "Discards all uncommitted changes in current directory",
+     "git stash  # Save changes temporarily instead"),
+    (r"git restore\s+(?!--staged)",
+     "Discards uncommitted changes (use --staged to only unstage)",
+     "git restore --staged <file>  # Unstage without discarding\ngit stash  # Save changes temporarily"),
 
     # Git: Hard reset
-    (r"git reset --hard", "Destroys all uncommitted modifications and staging"),
-    (r"git reset --merge", "Can destroy uncommitted changes during merge"),
+    (r"git reset --hard",
+     "Destroys all uncommitted modifications and staging",
+     "git stash  # Save changes first\ngit reset --soft HEAD~1  # Undo commit keeping changes"),
+    (r"git reset --merge",
+     "Can destroy uncommitted changes during merge",
+     "git merge --abort  # Cancel merge safely\ngit stash  # Save changes first"),
 
     # Git: Clean untracked files
-    # Matches -f, -xf, -df, -fd, --force, etc.
-    # Note: Dry runs (-n) are whitelisted in SAFE_PATTERNS first.
-    (r"git clean\b.*(?:-[a-z]*f|--force)", "Permanently removes untracked files"),
+    (r"git clean\b.*(?:-[a-z]*f|--force)",
+     "Permanently removes untracked files",
+     "git clean -n  # Dry run to see what would be deleted\ngit stash -u  # Stash untracked files instead"),
 
     # Git: Force push
-    # Matches --force, --force-with-lease, -f, and refspec with + prefix (e.g. +main)
-    # Note: --force-with-lease is safer but still rewrites history
-    (r"git push\b.*(?:--force(?:-with-lease)?|-f\b)", "Rewrites remote history, potentially destroying work"),
-    # Refspec with + prefix (e.g., git push origin +main)
-    (r"git push\b[^|;&]*\+\w+", "Force push via + refspec prefix, rewrites remote history"),
+    (r"git push\b.*(?:--force(?:-with-lease)?|-f\b)",
+     "Rewrites remote history, potentially destroying work",
+     "git push --force-with-lease  # Safer: fails if remote changed\ngit pull --rebase origin main  # Rebase instead of force push"),
+    (r"git push\b[^|;&]*\+\w+",
+     "Force push via + refspec prefix, rewrites remote history",
+     "git push origin main  # Normal push without force"),
 
     # Git: Dangerous branch operations
-    (r"git branch -D", "Force-deletes branch bypassing merge safety checks"),
+    (r"git branch -D",
+     "Force-deletes branch bypassing merge safety checks",
+     "git branch -d <branch>  # Safe delete (fails if unmerged)"),
 
     # Git: Stash destruction
-    (r"git stash drop", "Permanently loses stashed changes"),
-    (r"git stash clear", "Permanently loses ALL stashed changes"),
+    (r"git stash drop",
+     "Permanently loses stashed changes",
+     "git stash list  # Review stashes first\ngit stash apply  # Apply without dropping"),
+    (r"git stash clear",
+     "Permanently loses ALL stashed changes",
+     "git stash list  # Review all stashes first"),
 
     # Filesystem: Recursive deletion (except temp dirs - checked in SAFE_PATTERNS)
-    (r"rm -rf\s+[^/\$]", "Recursive forced deletion - extremely dangerous"),
-    (r"rm -rf\s+/(?!tmp|var/tmp)", "Recursive forced deletion outside temp directories"),
+    (r"rm -rf\s+[^/\$]",
+     "Recursive forced deletion - extremely dangerous",
+     "ls <path>  # List contents first\nmv <path> /tmp/backup_$(date +%s)  # Move to temp instead"),
+    (r"rm -rf\s+/(?!tmp|var/tmp)",
+     "Recursive forced deletion outside temp directories",
+     "ls <path>  # List contents first\nmv <path> /tmp/backup_$(date +%s)  # Move to temp instead"),
 ]
 
 
@@ -182,20 +208,20 @@ def strip_string_literals(command: str) -> str:
     return ''.join(result)
 
 
-def check_destructive(command: str) -> tuple[bool, str]:
+def check_destructive(command: str) -> tuple:
     """
     Check if command matches a destructive pattern.
 
     Returns:
-        (is_blocked, reason) - True if command should be blocked
+        (is_blocked, reason, safe_alternative) - True if command should be blocked
     """
     # Strip heredoc content to avoid false positives on documentation
     command_to_check = strip_string_literals(strip_heredoc_content(command))
 
-    for pattern, reason in DESTRUCTIVE_PATTERNS:
+    for pattern, reason, alternative in DESTRUCTIVE_PATTERNS:
         if re.search(pattern, command_to_check, re.IGNORECASE):
-            return True, reason
-    return False, ""
+            return True, reason, alternative
+    return False, "", ""
 
 
 def main():
@@ -229,19 +255,26 @@ def main():
             sys.exit(0)
 
         # Check for destructive patterns
-        is_blocked, reason = check_destructive(command)
+        is_blocked, reason, alternative = check_destructive(command)
 
         if is_blocked:
+            # Truncate command for display if too long
+            display_cmd = command[:200] + "..." if len(command) > 200 else command
+
             # Output denial in Claude Code hook format
             response = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "deny",
                     "permissionDecisionReason": (
-                        f"BLOCKED by ACFS git_safety_guard.py\n\n"
-                        f"Reason: {reason}\n\n"
-                        f"Command: {command}\n\n"
-                        "If you really need to run this command, ask the user for explicit permission."
+                        f"BLOCKED: Destructive command detected.\n\n"
+                        f"Command: {display_cmd}\n\n"
+                        f"Risk: {reason}\n\n"
+                        f"Safe alternatives:\n```bash\n{alternative}\n```\n\n"
+                        "To proceed anyway:\n"
+                        "1. Ask the user for explicit permission with the exact command\n"
+                        "2. Or set FARMHAND_SKIP_ENFORCEMENT=1 (use with caution)\n\n"
+                        "See: docs/troubleshooting-flowchart.md Section E (Git Safety)"
                     )
                 }
             }
