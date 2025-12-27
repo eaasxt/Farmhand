@@ -80,19 +80,75 @@ def check_registration():
     return "fail", "No registered agent found. Run 'register_agent()' via Claude."
 
 def check_mcp_service():
+    # 1. Systemd check
     try:
-        # Check systemd service status
         result = subprocess.run(
             ["systemctl", "is-active", "mcp-agent-mail"], 
             capture_output=True, 
             text=True
         )
-        if result.returncode == 0:
-            return "ok", "Service is active"
-        else:
+        if result.returncode != 0:
             return "fail", f"Service is {result.stdout.strip() or 'inactive'}"
     except FileNotFoundError:
-        return "warn", "systemctl not found (not running on Linux?)"
+        pass # proceed to http check if systemctl missing (e.g. docker)
+
+    # 2. HTTP API check
+    import urllib.request
+    import urllib.error
+    
+    url = "http://127.0.0.1:8765/mcp/"
+    payload = {
+        "jsonrpc": "2.0", 
+        "method": "tools/call", 
+        "params": {"name": "health_check", "arguments": {}}, 
+        "id": 1
+    }
+    
+    try:
+        req = urllib.request.Request(
+            url, 
+            data=json.dumps(payload).encode('utf-8'), 
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=2) as response:
+            if response.status == 200:
+                body = json.loads(response.read().decode('utf-8'))
+                if "error" in body:
+                    return "fail", f"API Error: {body['error']['message']}"
+                return "ok", "Service active and responding to API"
+            else:
+                return "fail", f"API HTTP {response.status}"
+    except Exception as e:
+        return "fail", f"API check failed: {e}"
+
+def check_ollama():
+    # 1. Systemd check
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "ollama"], 
+            capture_output=True, 
+            text=True
+        )
+        if result.returncode != 0:
+            return "fail", f"Service is {result.stdout.strip() or 'inactive'}"
+    except FileNotFoundError:
+        pass
+
+    # 2. API check
+    import urllib.request
+    import urllib.error
+    
+    url = "http://localhost:11434/api/version"
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                version = data.get('version', 'unknown')
+                return "ok", f"Service active (version {version})"
+            else:
+                return "fail", f"API HTTP {response.status}"
+    except Exception as e:
+        return "fail", f"API check failed: {e}"
 
 def check_hooks():
     hooks_dir = Path.home() / ".claude" / "hooks"
@@ -171,6 +227,7 @@ def main():
     checks = [
         ("Registration", check_registration),
         ("MCP Service", check_mcp_service),
+        ("Ollama", check_ollama),
         ("Hooks", check_hooks),
         ("Beads (Task Tracking)", check_beads),
         ("Disk Space", check_disk_space),

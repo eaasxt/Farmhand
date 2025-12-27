@@ -16,7 +16,7 @@ systemctl is-active --quiet ollama && ok "ollama running" || fail "ollama DOWN"
 
 # APIs
 curl -sf http://localhost:11434/api/version >/dev/null && ok "Ollama API responding" || fail "Ollama API DOWN"
-# MCP uses the service check above - no HTTP health endpoint exposed
+curl -sf -X POST -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "health_check", "arguments": {}}, "id": 1}' http://127.0.0.1:8765/mcp/ | jq -e '.result | .isError == false' >/dev/null && ok "MCP API responding" || fail "MCP API DOWN"
 
 # Hooks
 test -f ~/.claude/hooks/todowrite-interceptor.py && ok "Enforcement hooks installed" || fail "Hooks missing (run 07-hooks.sh)"
