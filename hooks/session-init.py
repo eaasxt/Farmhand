@@ -56,7 +56,7 @@ def state_lock(timeout: float = 2.0):
     acquired = False
     
     try:
-        lock_fd = open(lock_file, 'w')
+        lock_fd = open(lock_file, 'w', encoding='utf-8')
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -167,7 +167,7 @@ def main():
 
     # Clear THIS AGENT's state on fresh startup (not other agents')
     if trigger in ["startup", "clear"]:
-        with state_lock() as acquired:
+        with state_lock() as _acquired:  # noqa: F841 - fail-open: proceed even if lock not acquired
             if state_file.exists():
                 try:
                     os.remove(state_file)

@@ -96,7 +96,7 @@ def state_lock(timeout: float = LOCK_TIMEOUT):
             pass  # Another process may have cleaned it up
 
     # Open lock file (create if needed)
-    lock_fd = open(lock_file, 'w')
+    lock_fd = open(lock_file, 'w', encoding='utf-8')
     start_time = time.time()
     acquired = False
 
@@ -133,7 +133,7 @@ def load_state():
     state_file = get_state_file()
     if state_file.exists():
         try:
-            with open(state_file) as f:
+            with open(state_file, encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -157,7 +157,7 @@ def save_state(state):
     # Atomic write: write to temp file, then rename
     temp_file = state_file.with_suffix('.tmp')
     try:
-        with open(temp_file, "w") as f:
+        with open(temp_file, "w", encoding='utf-8') as f:
             json.dump(state, f, indent=2)
         temp_file.rename(state_file)  # Atomic rename on POSIX
     except IOError:

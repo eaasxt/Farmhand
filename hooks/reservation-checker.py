@@ -65,7 +65,7 @@ def get_state_from_file():
     state_file = get_state_file()
     if state_file.exists():
         try:
-            with open(state_file) as f:
+            with open(state_file, encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -279,7 +279,7 @@ def main():
         sys.exit(0)
 
     # Skip certain paths (including mcp_agent_mail so agents can manage their own reservations)
-    skip_patterns = ["/.claude/", "/.local/bin/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/.mcp_agent_mail/"]
+    skip_patterns = ["/.claude/", "/.local/bin/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/mcp_agent_mail/", "/.beads/"]
     for pattern in skip_patterns:
         if pattern in file_path:
             sys.exit(0)
