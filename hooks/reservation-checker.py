@@ -250,7 +250,7 @@ def check_file_reserved(file_path: str, agent_name: str, reservations: list) -> 
         res_agent = res.get("agent_name", "")
         for pattern in res.get("paths", []):
             if file_matches_pattern(file_path, pattern):
-                if res_agent.lower() == agent_name.lower():
+                if res_agent == agent_name:
                     return (True, None)  # Reserved by this agent
                 else:
                     return (False, res_agent)  # Reserved by another agent
