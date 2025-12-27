@@ -5,8 +5,12 @@
 # Runs UBS (Ultimate Bug Scanner) on staged files before commit.
 # Blocks commit if UBS finds issues (exit code > 0).
 #
-# Installation: Installed by JohnDeere installer to .git/hooks/pre-commit
+# Installation: Installed by Farmhand installer to ~/.config/git/hooks/pre-commit
 # Skip: SKIP_UBS=1 git commit -m "..." (for emergencies only)
+#
+# IMPORTANT: UBS only accepts directory paths, NOT individual file paths.
+# Use `ubs --staged` which creates a shadow workspace with staged files.
+# Do NOT use: ubs file1.py file2.py (this will fail with usage error)
 #
 
 set -e
@@ -35,7 +39,8 @@ fi
 echo "Running UBS security scan on staged files..."
 
 # Run UBS with --staged flag (scans only files in git staging area)
-# This is the correct way to invoke UBS for pre-commit checks
+# This creates a shadow workspace with the staged file versions and scans them
+# IMPORTANT: Do NOT pass individual file paths - UBS only accepts directories
 if ! ubs --staged --fail-on-warning; then
     echo ""
     echo "============================================"
