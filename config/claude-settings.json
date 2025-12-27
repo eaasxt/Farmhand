@@ -34,7 +34,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session",
+        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session|Write|Edit|Read",
         "hooks": [
           {
             "type": "command",

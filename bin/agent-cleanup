@@ -17,7 +17,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 MCP_DB = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
@@ -41,7 +41,7 @@ def get_stale_agents(conn, hours):
     all_agents = cursor.fetchall()
     
     # Calculate threshold
-    threshold = datetime.utcnow() - timedelta(hours=hours)
+    threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
     threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
     
     # Get stale agents
@@ -63,7 +63,7 @@ def get_orphaned_reservations(conn, hours):
     orphaned = []
     cursor = conn.cursor()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     now_str = now.strftime('%Y-%m-%d %H:%M:%S')
     threshold = now - timedelta(hours=hours)
     threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
@@ -140,7 +140,7 @@ def delete_orphaned_reservations(conn, orphaned):
     """Release orphaned reservations in the database."""
     cursor = conn.cursor()
     released = 0
-    now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
 
     for item in orphaned:
         try:

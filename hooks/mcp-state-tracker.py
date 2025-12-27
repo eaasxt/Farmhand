@@ -29,6 +29,8 @@ from contextlib import contextmanager
 
 # Escape hatch for experienced users - bypass all state tracking
 if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
+    # Consume stdin to prevent blocking the caller, then exit
+    sys.stdin.read()
     sys.exit(0)
 
 # Per-agent state files to avoid conflicts

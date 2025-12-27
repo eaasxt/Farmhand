@@ -2,10 +2,17 @@
 # Note: Not using set -e because arithmetic operations can return non-zero
 set -uo pipefail
 
-# Verify Farmhand v2.2.1 installation
+# Get version from VERSION file or default
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION_FILE="$SCRIPT_DIR/../VERSION"
+if [[ -f "$VERSION_FILE" ]]; then
+    FARMHAND_VERSION=$(cat "$VERSION_FILE")
+else
+    FARMHAND_VERSION="unknown"
+fi
 
 echo "=========================================="
-echo "  Farmhand v2.2.1 Installation Verify"
+echo "  Farmhand v${FARMHAND_VERSION} Installation Verify"
 echo "=========================================="
 echo ""
 

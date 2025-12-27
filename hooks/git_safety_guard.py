@@ -126,6 +126,62 @@ def strip_heredoc_content(command: str) -> str:
     return result
 
 
+
+
+def strip_string_literals(command: str) -> str:
+    """
+    Remove string literal content from command before pattern matching.
+    
+    Prevents false positives when dangerous patterns appear inside:
+    - Single-quoted strings: 'rm -rf /'
+    - Double-quoted strings: "git reset --hard"
+    - Python/JS strings in inline code: python3 -c "print('rm -rf')"
+    """
+    result = []
+    i = 0
+    in_single = False
+    in_double = False
+    escape_next = False
+    
+    while i < len(command):
+        char = command[i]
+        
+        if escape_next:
+            escape_next = False
+            if not in_single and not in_double:
+                result.append(char)
+            i += 1
+            continue
+            
+        if char == '\\':
+            escape_next = True
+            if not in_single and not in_double:
+                result.append(char)
+            i += 1
+            continue
+            
+        if char == "'" and not in_double:
+            in_single = not in_single
+            result.append(char)
+            i += 1
+            continue
+            
+        if char == '"' and not in_single:
+            in_double = not in_double
+            result.append(char)
+            i += 1
+            continue
+        
+        if not in_single and not in_double:
+            result.append(char)
+        else:
+            result.append('X')  # Placeholder
+        
+        i += 1
+    
+    return ''.join(result)
+
+
 def check_destructive(command: str) -> tuple[bool, str]:
     """
     Check if command matches a destructive pattern.
@@ -134,7 +190,7 @@ def check_destructive(command: str) -> tuple[bool, str]:
         (is_blocked, reason) - True if command should be blocked
     """
     # Strip heredoc content to avoid false positives on documentation
-    command_to_check = strip_heredoc_content(command)
+    command_to_check = strip_string_literals(strip_heredoc_content(command))
 
     for pattern, reason in DESTRUCTIVE_PATTERNS:
         if re.search(pattern, command_to_check, re.IGNORECASE):

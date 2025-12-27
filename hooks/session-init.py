@@ -15,8 +15,10 @@ import sys
 import os
 import sqlite3
 import time
+import fcntl
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager
 
 # Escape hatch for experienced users - bypass all processing
 if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
@@ -35,6 +37,42 @@ def get_state_file():
     else:
         # Single-agent: legacy shared state file
         return STATE_DIR / "agent-state.json"
+
+
+
+
+def get_lock_file():
+    """Get the lock file path for this agent's state file."""
+    state_file = get_state_file()
+    return state_file.with_suffix('.lock')
+
+
+@contextmanager
+def state_lock(timeout: float = 2.0):
+    """Acquire exclusive lock before modifying state file."""
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    lock_file = get_lock_file()
+    lock_fd = None
+    acquired = False
+    
+    try:
+        lock_fd = open(lock_file, 'w')
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            try:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                time.sleep(0.05)
+        
+        yield acquired
+    finally:
+        if lock_fd:
+            if acquired:
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+            lock_fd.close()
 
 
 def cleanup_old_state_files(max_age_days=7):
@@ -129,11 +167,12 @@ def main():
 
     # Clear THIS AGENT's state on fresh startup (not other agents')
     if trigger in ["startup", "clear"]:
-        if state_file.exists():
-            try:
-                os.remove(state_file)
-            except IOError:
-                pass
+        with state_lock() as acquired:
+            if state_file.exists():
+                try:
+                    os.remove(state_file)
+                except IOError:
+                    pass
 
     # Clean up old state files (older than 7 days)
     cleaned_files = cleanup_old_state_files(max_age_days=7)

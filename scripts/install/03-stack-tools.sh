@@ -23,7 +23,7 @@ if ! command -v ast-grep &>/dev/null && ! command -v sg &>/dev/null; then
     else
         echo "    ERROR: Cannot install ast-grep. Install brew, cargo, or npm first."
         echo "    ast-grep is REQUIRED for UBS v5.0.0 JavaScript/TypeScript scanning."
-        exit 1
+        return 1
     fi
 else
     echo "    ast-grep already installed"
