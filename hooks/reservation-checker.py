@@ -126,7 +126,8 @@ def get_active_reservations():
             cursor = conn.cursor()
 
             # Get active (non-released, non-expired) reservations
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            # Use ISO format to match database timestamp format
+            now = datetime.now(timezone.utc).isoformat()
             cursor.execute("""
                 SELECT
                     fr.path_pattern,

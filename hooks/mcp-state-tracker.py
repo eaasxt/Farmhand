@@ -248,14 +248,15 @@ def main():
                     state["registration_time"] = time.time()
 
                 # Also track any reservations from macro
-                paths = tool_input.get("paths", [])
-                reason = tool_input.get("reason", "")
+                # Note: macro_start_session uses "file_reservation_paths" parameter, not "paths"
+                paths = tool_input.get("file_reservation_paths") or tool_input.get("paths", [])
+                reason = tool_input.get("file_reservation_reason", "")
                 if paths:
                     reservation = {
                         "paths": paths,
                         "reason": reason,
                         "created_at": time.time(),
-                        "expires_at": time.time() + tool_input.get("ttl_seconds", 3600)
+                        "expires_at": time.time() + tool_input.get("file_reservation_ttl_seconds", 3600)
                     }
                     state["reservations"].append(reservation)
                 save_state(state)

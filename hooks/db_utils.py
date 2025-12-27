@@ -102,10 +102,8 @@ def execute_with_retry(
             last_error = e
             raise
 
-    # Should not reach here, but just in case
-    if last_error:
-        raise last_error
-    raise sqlite3.Error("Operation failed after retries")
+    # This point is only reachable if max_retries is 0 (no iterations)
+    raise sqlite3.Error("Operation failed: max_retries must be at least 1")
 
 
 def query_with_retry(

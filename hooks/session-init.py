@@ -120,7 +120,8 @@ def check_orphaned_reservations():
         # Find reservations that are old (> 4 hours) but not released and not expired
         stale_threshold_hours = 4
         now = datetime.now(timezone.utc)
-        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        # Use ISO format to match database timestamp format
+        now_str = now.isoformat()
 
         cursor.execute("""
             SELECT
@@ -132,7 +133,7 @@ def check_orphaned_reservations():
             JOIN agents a ON fr.agent_id = a.id
             WHERE fr.released_ts IS NULL
               AND fr.expires_ts > ?
-              AND datetime(fr.created_ts, '+' || ? || ' hours') < ?
+              AND datetime(fr.created_ts, '+' || ? || ' hours') < datetime(?)
         """, (now_str, stale_threshold_hours, now_str))
 
         for row in cursor.fetchall():
