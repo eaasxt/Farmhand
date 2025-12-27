@@ -42,7 +42,7 @@ def get_stale_agents(conn, hours):
     
     # Calculate threshold
     threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
-    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+    threshold_str = threshold.isoformat()
     
     # Get stale agents
     cursor.execute("""
@@ -64,9 +64,9 @@ def get_orphaned_reservations(conn, hours):
     cursor = conn.cursor()
 
     now = datetime.now(timezone.utc)
-    now_str = now.strftime('%Y-%m-%d %H:%M:%S')
+    now_str = now.isoformat()
     threshold = now - timedelta(hours=hours)
-    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+    threshold_str = threshold.isoformat()
 
     # Get all non-released reservations that are either expired or stale
     cursor.execute("""
@@ -140,7 +140,7 @@ def delete_orphaned_reservations(conn, orphaned):
     """Release orphaned reservations in the database."""
     cursor = conn.cursor()
     released = 0
-    now_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now(timezone.utc).isoformat()
 
     for item in orphaned:
         try:
