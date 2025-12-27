@@ -5,10 +5,10 @@ After=mcp-agent-mail.service
 
 [Service]
 Type=oneshot
-ExecStart=/home/ubuntu/.local/bin/bd-cleanup --cron --stale-hours=2
-User=ubuntu
-Environment=HOME=/home/ubuntu
-Environment=BEADS_DB=/home/ubuntu/.beads/beads.db
+ExecStart=__HOME__/.local/bin/bd-cleanup --cron --stale-hours=2
+User=__USER__
+Environment=HOME=__HOME__
+Environment=BEADS_DB=__HOME__/.beads/beads.db
 
 # Logging
 StandardOutput=journal
