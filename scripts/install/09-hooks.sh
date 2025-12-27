@@ -174,4 +174,10 @@ else
     echo "  Warning: NTM command palette not found in repo"
 fi
 
+# Start beads daemon for fast bd commands (232x speedup vs auto-start timeout)
+if command -v bd &>/dev/null; then
+    echo "  Starting beads daemon..."
+    bd daemon --start 2>/dev/null && echo "  Beads daemon started" || echo "  Warning: Could not start beads daemon"
+fi
+
 echo "Enforcement hooks installed."
