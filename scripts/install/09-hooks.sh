@@ -48,6 +48,9 @@ else
     # Fallback: generate inline (for backwards compatibility)
     cat > "$SETTINGS_FILE" << SETTINGS
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PreToolUse": [
       {
