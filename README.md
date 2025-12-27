@@ -113,6 +113,25 @@ Result: No conflicts, clear ownership, happy developers
 
 **Agents can't cheat.** The hooks intercept every file operation and enforce the workflow automatically.
 
+---
+
+## 🧘 The Philosophy: Truth Lives Outside the Model
+
+Farmhand is built on the **Knowledge & Vibes** framework. The core insight is simple: **The AI's confident output is not truth.**
+
+Truth is:
+1.  Tests that pass
+2.  Code that compiles
+3.  Documentation that exists
+4.  Security scans that clear
+
+Everything else is a hypothesis. Farmhand provides the **protocol** to turn those hypotheses into verified software:
+
+*   **Plan Explicitly**: A "North Star Card" captures what success looks like before code is written.
+*   **Track Everything**: Work is broken into "beads" (tasks) with explicit dependencies.
+*   **Coordinate**: File reservations prevent "too many cooks in the kitchen."
+*   **Verify**: Mandatory security scans (`ubs`) and tests act as the source of truth.
+
 
 
 ## 🎯 Who Is This For?
@@ -263,37 +282,46 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 
 ## 🛠 What Gets Installed
 
-### Core Stack (Essential)
+Farmhand isn't just a script; it's a cohesive **Capability Stack**.
 
-| Tool | Purpose | Docs |
-|------|---------|------|
-| **[bd](https://github.com/steveyegge/beads)** | Distributed, git-backed graph issue tracker | [README](https://github.com/steveyegge/beads#readme) |
-| **[bv](https://github.com/Dicklesworthstone/beads_viewer)** | Terminal UI for beads with graph visualization | [README](https://github.com/Dicklesworthstone/beads_viewer#readme) |
-| **[qmd](https://github.com/tobi/qmd)** | Markdown semantic search with local LLM | [README](https://github.com/tobi/qmd#readme) |
-| **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | Agent messaging & file reservations | [README](https://github.com/Dicklesworthstone/mcp_agent_mail#readme) |
-| **farmhand-doctor** | Comprehensive system diagnostic tool | `farmhand-doctor --help` |
+### 🧠 The Coordination Engine
+*Prevent chaos and keep agents aligned.*
 
-### AI Coding Agents
+| Tool | Purpose |
+|------|---------|
+| **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | The nervous system. Handles file reservations, agent messaging, and handoffs. |
+| **[bd (Beads)](https://github.com/steveyegge/beads)** | The memory. Distributed, git-backed graph issue tracker. |
+| **[ntm](https://github.com/Dicklesworthstone/ntm)** | The orchestrator. Named Tmux Manager for spinning up agent teams. |
+
+### 🛡️ The Enforcement Layer
+*Safety rails that agents cannot bypass.*
+
+| Tool | Purpose |
+|------|---------|
+| **Hooks** | Python scripts that intercept `Edit`, `Write`, `Bash` to enforce reservations. |
+| **[ubs](https://github.com/Dicklesworthstone/ultimate_bug_scanner)** | The gatekeeper. AI-powered security and bug scanner (run before commit). |
+| **farmhand-doctor** | The medic. System diagnostic tool to verify health. |
+
+### 📚 The Knowledge Base
+*Tools to understand and navigate the codebase.*
+
+| Tool | Purpose |
+|------|---------|
+| **[qmd](https://github.com/tobi/qmd)** | Semantic search for your docs and code. |
+| **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search history of *what agents did* in previous sessions. |
+| **[cm](https://github.com/Dicklesworthstone/cass_memory_system)** | Procedural memory for agents to store facts. |
+
+### 🤖 The Workforce
+*Pre-configured AI agent aliases.*
 
 | Agent | Alias | Mode | Auth |
 |-------|-------|------|------|
-| Claude Code | `cla` | `--dangerously-skip-permissions` | OAuth |
-| Codex CLI | `cod` | `--full-auto` | Device code |
-| Gemini CLI | `gmi` | `--yolo` | OAuth |
+| **Claude Code** | `cla` | `--dangerously-skip-permissions` | OAuth |
+| **Codex CLI** | `cod` | `--full-auto` | Device code |
+| **Gemini CLI** | `gmi` | `--yolo` | OAuth |
 
 <details>
 <summary><strong>📦 Full Tool List (click to expand)</strong></summary>
-
-#### Dicklesworthstone Stack (6 Tools)
-
-| Tool | Purpose | Docs |
-|------|---------|------|
-| **[ubs](https://github.com/Dicklesworthstone/ultimate_bug_scanner)** | AI-powered bug scanner, pre-commit security | [README](https://github.com/Dicklesworthstone/ultimate_bug_scanner#readme) |
-| **[ntm](https://github.com/Dicklesworthstone/ntm)** | Named Tmux Manager for multi-agent orchestration | [README](https://github.com/Dicklesworthstone/ntm#readme) |
-| **[cm](https://github.com/Dicklesworthstone/cass_memory_system)** | Procedural memory system for agents | [README](https://github.com/Dicklesworthstone/cass_memory_system#readme) |
-| **[caam](https://github.com/Dicklesworthstone/coding_agent_account_manager)** | Backup/restore agent authentication | [README](https://github.com/Dicklesworthstone/coding_agent_account_manager#readme) |
-| **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search past agent session transcripts | [README](https://github.com/Dicklesworthstone/coding_agent_session_search#readme) |
-| **[slb](https://github.com/Dicklesworthstone/simultaneous_launch_button)** | Two-person rule for dangerous commands | [README](https://github.com/Dicklesworthstone/simultaneous_launch_button#readme) |
 
 #### Context Engineering Utilities
 
