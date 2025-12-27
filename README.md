@@ -277,7 +277,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | Agent | Alias | Mode | Auth |
 |-------|-------|------|------|
 | Claude Code | `cla` | `--dangerously-skip-permissions` | OAuth |
-| Codex CLI | `cod` | `--approval-mode full-auto` | Device code |
+| Codex CLI | `cod` | `--full-auto` | Device code |
 | Gemini CLI | `gmi` | `--yolo` | OAuth |
 
 <details>
