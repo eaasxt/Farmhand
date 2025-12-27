@@ -107,11 +107,31 @@ fi
 
 # Configure Claude Code to use MCP Agent Mail
 echo "==> Configuring Claude Code MCP integration..."
-mkdir -p "$HOME/.claude"
 
-# Create mcp.json with the bearer token
-cat > "$HOME/.claude/mcp.json" << EOF
+# Use the claude mcp add command for proper configuration
+# This writes to ~/.claude.json which Claude Code actually reads
+# Note: ~/.claude/mcp.json is NOT read by Claude Code!
+if command -v claude &> /dev/null; then
+    echo "    Adding MCP server via 'claude mcp add'..."
+    claude mcp add --transport http mcp-agent-mail "http://127.0.0.1:8765/mcp/" \
+        --header "Authorization: Bearer $TOKEN" 2>/dev/null && {
+        echo "    MCP Agent Mail configured successfully"
+    } || {
+        echo "    WARNING: 'claude mcp add' failed. Manual configuration may be needed."
+        echo "    Run: claude mcp add --transport http mcp-agent-mail http://127.0.0.1:8765/mcp/ --header \"Authorization: Bearer \$TOKEN\""
+    }
+else
+    echo "    WARNING: 'claude' command not found."
+    echo "    After installing Claude Code, run:"
+    echo "    claude mcp add --transport http mcp-agent-mail http://127.0.0.1:8765/mcp/ --header \"Authorization: Bearer $TOKEN\""
+fi
+
+# Also create a reference file (not used by Claude Code, just for documentation)
+mkdir -p "$HOME/.claude"
+cat > "$HOME/.claude/mcp-reference.json" << EOF
 {
+  "_comment": "This file is for REFERENCE ONLY. Claude Code reads ~/.claude.json, not this file.",
+  "_instructions": "Run: claude mcp add --transport http mcp-agent-mail http://127.0.0.1:8765/mcp/ --header 'Authorization: Bearer TOKEN'",
   "mcpServers": {
     "mcp-agent-mail": {
       "type": "http",
@@ -123,5 +143,4 @@ cat > "$HOME/.claude/mcp.json" << EOF
   }
 }
 EOF
-chmod 600 "$HOME/.claude/mcp.json"
-echo "    Created ~/.claude/mcp.json with MCP Agent Mail configuration"
+chmod 600 "$HOME/.claude/mcp-reference.json"
