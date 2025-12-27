@@ -6,9 +6,16 @@
 
 set -euo pipefail
 
-VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Read version from VERSION file (upgrade.sh is always run from repo)
+if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+    VERSION="$(cat "$SCRIPT_DIR/VERSION")"
+else
+    echo "ERROR: VERSION file not found. Run from Farmhand repo directory." >&2
+    exit 1
+fi
 
 # Colors
 RED='\033[0;31m'

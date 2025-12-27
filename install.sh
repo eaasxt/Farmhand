@@ -17,9 +17,16 @@
 
 set -euo pipefail
 
-FARMHAND_VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Read version from VERSION file if available, otherwise use fallback
+if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+    FARMHAND_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
+else
+    # Fallback for curl | bash installation
+    FARMHAND_VERSION="2.2.1"
+fi
 
 # Colors
 RED='\033[0;31m'
