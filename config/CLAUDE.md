@@ -790,9 +790,11 @@ Quick access to AI agents with dangerous permissions enabled:
 
 | Alias | Command | Mode |
 |-------|---------|------|
-| `cc` | `claude --dangerously-skip-permissions` | Skip all prompts |
-| `cod` | `bunx codex --approval-mode full-auto` | Auto-approve all |
+| `cla` | `claude --dangerously-skip-permissions` | Skip all prompts |
+| `cod` | `bunx codex --full-auto` | Auto-approve all |
 | `gmi` | `bunx gemini --yolo` | YOLO mode |
+
+Note: `cla` is used instead of `cc` to avoid conflict with the C compiler (`/usr/bin/cc`).
 
 Safe alternatives:
 - `claude-safe`, `codex-safe`, `gemini-safe`

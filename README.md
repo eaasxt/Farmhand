@@ -1070,7 +1070,7 @@ ntm spawn cropwatch --cc=3
 ├─────────────────────┼─────────────────────┼─────────────────────────────┤
 │     SHORTCUTS       │    NAVIGATION       │         RECOVERY            │
 ├─────────────────────┼─────────────────────┼─────────────────────────────┤
-│ cc = claude danger  │ z <dir> = jump      │ bd-cleanup --force          │
+│ cla = claude danger │ z <dir> = jump      │ bd-cleanup --force          │
 │ lg = lazygit        │ Ctrl+R = history    │ bd-cleanup --release-all    │
 │ F6 = ntm palette    │ Ctrl+T = find file  │ bd-cleanup --reset-state    │
 └─────────────────────┴─────────────────────┴─────────────────────────────┘
@@ -1236,7 +1236,7 @@ python3 -m pytest tests/ -v
 - Multi-agent coordination with MCP Agent Mail
 - Enforcement hooks layer (PreToolUse, PostToolUse, SessionStart)
 - Cloud CLIs (Vault, Wrangler, Supabase, Vercel)
-- AI agent aliases (cc, cod, gmi)
+- AI agent aliases (cla, cod, gmi)
 - Modern shell environment
 
 ### v1.x (October 2025)
