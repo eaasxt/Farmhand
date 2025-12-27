@@ -29,6 +29,34 @@ AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
 MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
 
+
+def get_active_agent_count(minutes: int = 30) -> int:
+    """
+    Count recently active agents in the MCP database.
+
+    Used to detect multi-agent scenarios where AGENT_NAME should be required.
+    Returns 0 if database unavailable (fail open for this check).
+    """
+    if not MCP_DB_PATH.exists():
+        return 0
+
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.execute('PRAGMA busy_timeout=5000')
+        cursor = conn.cursor()
+
+        # Count agents active in the last N minutes
+        cursor.execute("""
+            SELECT COUNT(DISTINCT id) FROM agents
+            WHERE datetime(last_active_ts) > datetime('now', '-' || ? || ' minutes')
+        """, (minutes,))
+
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
+    except sqlite3.Error:
+        return 0  # Fail open - don't block if we can't check
+
 def get_state_file():
     """Get the state file path for this agent."""
     if AGENT_NAME:
@@ -183,6 +211,31 @@ def main():
 
     # Build context message
     context_parts = []
+
+    # Check for multi-agent conflict risk (no AGENT_NAME but multiple recent agents)
+    if not AGENT_NAME:
+        active_agents = get_active_agent_count(minutes=30)
+        if active_agents > 1:
+            context_parts.append("=" * 70)
+            context_parts.append("⚠️  WARNING: MULTI-AGENT CONFLICT RISK DETECTED")
+            context_parts.append("=" * 70)
+            context_parts.append("")
+            context_parts.append(f"{active_agents} agents have been active in the last 30 minutes,")
+            context_parts.append("but AGENT_NAME is not set for this session.")
+            context_parts.append("")
+            context_parts.append("Without AGENT_NAME, all agents share ~/.claude/agent-state.json")
+            context_parts.append("and will overwrite each other's identity, causing reservation failures.")
+            context_parts.append("")
+            context_parts.append("TO FIX - Set AGENT_NAME before launching Claude:")
+            context_parts.append("  export AGENT_NAME=\"MyAgent1\"")
+            context_parts.append("  claude")
+            context_parts.append("")
+            context_parts.append("OR use NTM which sets this automatically:")
+            context_parts.append("  ntm spawn myproject --cc=2")
+            context_parts.append("")
+            context_parts.append("See: docs/adr/0003-multi-agent-state-isolation.md")
+            context_parts.append("=" * 70)
+            context_parts.append("")
 
     if cleaned_files:
         context_parts.append(f"Cleaned up {len(cleaned_files)} old state file(s) (> 7 days old)")
