@@ -24,7 +24,7 @@ if ! command -v ubs &>/dev/null; then
     exit 0
 fi
 
-# Get staged files (only actual code files)
+# Check if there are any staged code files
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(py|js|ts|jsx|tsx|go|rs|java|rb|php|c|cpp|h|hpp)$' || true)
 
 if [[ -z "$STAGED" ]]; then
@@ -33,14 +33,10 @@ if [[ -z "$STAGED" ]]; then
 fi
 
 echo "Running UBS security scan on staged files..."
-echo "$STAGED" | tr '\n' ' '
-echo ""
 
-# Run UBS on staged files
-# Note: We create a temp file list because xargs might fail with special chars
-STAGED_LIST=$(echo "$STAGED" | tr '\n' ' ')
-
-if ! ubs $STAGED_LIST; then
+# Run UBS with --staged flag (scans only files in git staging area)
+# This is the correct way to invoke UBS for pre-commit checks
+if ! ubs --staged --fail-on-warning; then
     echo ""
     echo "============================================"
     echo "COMMIT BLOCKED: UBS found issues"
