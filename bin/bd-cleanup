@@ -52,7 +52,6 @@ def get_orphaned_reservations(stale_hours=4):
         cursor = conn.cursor()
 
         now = datetime.now(timezone.utc)
-        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
         # Get all non-released reservations
         cursor.execute("""
@@ -278,7 +277,7 @@ def release_reservation_by_id(res_id):
         conn.execute('PRAGMA journal_mode=WAL')
         conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        now_str = datetime.now(timezone.utc).isoformat()
         cursor.execute(
             "UPDATE file_reservations SET released_ts = ? WHERE id = ?",
             (now_str, res_id)
