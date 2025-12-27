@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Farmhand cleanup hourly
+Documentation=https://github.com/eaasxt/Farmhand
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
