@@ -10,7 +10,7 @@ Project coordination file for multi-agent AI development.
 
 | Agent Name | Program | Focus | Status |
 |------------|---------|-------|--------|
-| *None registered* | - | - | - |
+| BrownHill | gemini-cli | Architecture Review | Active |
 
 <!-- Example:
 | BlueLake | claude-code | Backend API | Active |
