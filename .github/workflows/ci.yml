@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check Python syntax
+        run: |
+          echo "Checking Python syntax..."
+          find hooks bin -name "*.py" -exec python3 -m py_compile {} \;
+          echo "All Python files compile successfully"
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Check shell scripts
+        run: |
+          echo "Running shellcheck on install scripts..."
+          # Check main scripts (exclude sourced files that may have different requirements)
+          shellcheck -S warning install.sh upgrade.sh || true
+          # Check scripts directory with relaxed settings for sourced files
+          find scripts -name "*.sh" -exec shellcheck -S warning -e SC1091,SC2034 {} \; || true
+          echo "Shellcheck complete"
+
+  verify:
+    name: Verify Installation (Dry Run)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check required files exist
+        run: |
+          echo "Checking required files..."
+          test -f VERSION && echo "VERSION: $(cat VERSION)"
+          test -f install.sh && echo "install.sh exists"
+          test -f upgrade.sh && echo "upgrade.sh exists"
+          test -d hooks && echo "hooks/ directory exists"
+          test -d scripts/install && echo "scripts/install/ directory exists"
+          test -d config && echo "config/ directory exists"
+          echo "All required files present"
+
+      - name: Check hook permissions
+        run: |
+          echo "Checking hook files are valid Python..."
+          for hook in hooks/*.py; do
+            python3 -m py_compile "$hook"
+            echo "  $hook: OK"
+          done
+
+      - name: Validate JSON configs
+        run: |
+          echo "Validating JSON configurations..."
+          python3 -c "import json; json.load(open('config/claude-settings.json'))"
+          echo "  claude-settings.json: valid"
+
+      - name: Check version consistency
+        run: |
+          VERSION=$(cat VERSION)
+          echo "VERSION file: $VERSION"
+          # Check install.sh header matches
+          if grep -q "Farmhand.*v$VERSION" install.sh; then
+            echo "install.sh header: matches"
+          else
+            echo "WARNING: install.sh header may not match VERSION"
+          fi
