@@ -78,6 +78,38 @@ if [ -n "$TOKEN" ]; then
     echo "Localhost bypasses auth." >> ~/CLAUDE.md
 fi
 
+# Update Gemini settings (hideWindowTitle prevents NTM pane title conflicts)
+echo ""
+echo "==> Updating Gemini settings..."
+GEMINI_SETTINGS=~/.gemini/settings.json
+if command -v gemini &>/dev/null || [[ -d ~/.gemini ]]; then
+    mkdir -p ~/.gemini
+    if [[ -f "$GEMINI_SETTINGS" ]]; then
+        if ! grep -q "hideWindowTitle" "$GEMINI_SETTINGS" 2>/dev/null; then
+            if command -v jq &>/dev/null; then
+                jq '. + {"ui": {"hideWindowTitle": true}}' "$GEMINI_SETTINGS" > "$GEMINI_SETTINGS.tmp" && \
+                    mv "$GEMINI_SETTINGS.tmp" "$GEMINI_SETTINGS"
+                echo "    Added hideWindowTitle=true to Gemini settings"
+            else
+                echo "    WARNING: jq not available, manual fix needed"
+            fi
+        else
+            echo "    Gemini hideWindowTitle already configured"
+        fi
+    else
+        cat > "$GEMINI_SETTINGS" << 'EOF'
+{
+  "ui": {
+    "hideWindowTitle": true
+  }
+}
+EOF
+        echo "    Created Gemini settings with hideWindowTitle=true"
+    fi
+else
+    echo "    Gemini not installed, skipping"
+fi
+
 echo ""
 echo "=== Update Complete ==="
 echo "Run './scripts/verify.sh' to verify"

@@ -62,4 +62,33 @@ else
     echo "    Gemini already installed: $(gemini --version 2>&1 | head -1)"
 fi
 
+# Configure Gemini settings (hideWindowTitle prevents NTM pane title conflicts)
+GEMINI_SETTINGS="$HOME/.gemini/settings.json"
+if command -v gemini &>/dev/null; then
+    mkdir -p "$HOME/.gemini"
+    if [[ -f "$GEMINI_SETTINGS" ]]; then
+        # Check if hideWindowTitle is already set
+        if ! grep -q "hideWindowTitle" "$GEMINI_SETTINGS" 2>/dev/null; then
+            # Add ui.hideWindowTitle to existing settings
+            if command -v jq &>/dev/null; then
+                jq '. + {"ui": {"hideWindowTitle": true}}' "$GEMINI_SETTINGS" > "$GEMINI_SETTINGS.tmp" && \
+                    mv "$GEMINI_SETTINGS.tmp" "$GEMINI_SETTINGS"
+                echo "    Configured Gemini: hideWindowTitle=true"
+            else
+                echo "    WARNING: jq not available, Gemini hideWindowTitle not set"
+            fi
+        fi
+    else
+        # Create new settings file
+        cat > "$GEMINI_SETTINGS" << 'EOF'
+{
+  "ui": {
+    "hideWindowTitle": true
+  }
+}
+EOF
+        echo "    Created Gemini settings with hideWindowTitle=true"
+    fi
+fi
+
 echo "    AI Agents complete"
