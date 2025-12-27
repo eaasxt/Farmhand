@@ -271,6 +271,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 | **[bv](https://github.com/Dicklesworthstone/beads_viewer)** | Terminal UI for beads with graph visualization | [README](https://github.com/Dicklesworthstone/beads_viewer#readme) |
 | **[qmd](https://github.com/tobi/qmd)** | Markdown semantic search with local LLM | [README](https://github.com/tobi/qmd#readme) |
 | **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | Agent messaging & file reservations | [README](https://github.com/Dicklesworthstone/mcp_agent_mail#readme) |
+| **farmhand-doctor** | Comprehensive system diagnostic tool | `farmhand-doctor --help` |
 
 ### AI Coding Agents
 
@@ -1079,6 +1080,14 @@ ntm spawn cropwatch --cc=3
 
 ## 🔧 Troubleshooting
 
+### System Diagnostic
+
+Run the included doctor tool to diagnose common issues with registration, services, and hooks:
+
+```bash
+farmhand-doctor
+```
+
 ### Common Issues
 
 | Error | Solution |
@@ -1209,6 +1218,7 @@ python3 -m pytest tests/ -v
   - **obs-mask**: New utility to mask large tool outputs (>2000 tokens) to session artifacts
   - **Agent Mail Schemas**: Structured JSON schemas for CLAIMED, CLOSED, BLOCKED, HANDOFF messages
   - **Degradation Probes**: New probes agent in /calibrate skill for detecting context degradation
+- **System Diagnostics**: Enhanced `farmhand-doctor` with real API health checks for MCP and Ollama
 - 120 tests (up from 92) with new coverage for artifact tracking and observation masking
 - Improved multi-agent handoff quality through structured messaging
 
