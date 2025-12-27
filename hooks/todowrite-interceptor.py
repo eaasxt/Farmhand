@@ -20,9 +20,9 @@ def main():
         sys.exit(0)
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError as e:
-        print(f"Invalid JSON input: {e}", file=sys.stderr)
-        sys.exit(1)
+    except json.JSONDecodeError:
+        # Fail open on parse errors (don't block user workflow)
+        sys.exit(0)
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})

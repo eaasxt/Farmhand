@@ -265,7 +265,8 @@ def main():
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
-        sys.exit(1)
+        # Fail open on parse errors (don't block user workflow)
+        sys.exit(0)
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
