@@ -45,25 +45,21 @@ cp ~/Farmhand/hooks/*.py ~/.claude/hooks/
 cp ~/Farmhand/bin/bd-cleanup ~/.local/bin/
 chmod +x ~/.claude/hooks/*.py ~/.local/bin/bd-cleanup
 
-# Regenerate settings.json with hook config
+# Regenerate settings.json from template (keeps all hooks in sync)
 echo ""
 echo "==> Updating hook configuration..."
-cat > ~/.claude/settings.json << EOF
-{
-  "hooks": {
-    "PreToolUse": [
-      {"matcher": "TodoWrite", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/todowrite-interceptor.py", "timeout": 5}]},
-      {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/reservation-checker.py", "timeout": 5}]}
-    ],
-    "PostToolUse": [
-      {"matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/mcp-state-tracker.py", "timeout": 5}]}
-    ],
-    "SessionStart": [
-      {"matcher": "startup|resume|clear", "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/session-init.py", "timeout": 10}]}
-    ]
-  }
-}
-EOF
+TEMPLATE_FILE=~/Farmhand/config/claude-settings.json
+if [[ -f "$TEMPLATE_FILE" ]]; then
+    # Backup current settings
+    [[ -f ~/.claude/settings.json ]] && cp ~/.claude/settings.json ~/.claude/settings.json.bak
+    # Use template with __HOME__ substitution (same as install script)
+    sed "s|__HOME__|$HOME|g" "$TEMPLATE_FILE" > ~/.claude/settings.json
+    chmod 600 ~/.claude/settings.json
+    echo "    Installed settings.json from template"
+else
+    echo "    WARNING: Template not found at $TEMPLATE_FILE"
+    echo "    settings.json not updated - pull Farmhand repo first"
+fi
 
 # Update CLAUDE.md
 echo ""
