@@ -51,3 +51,40 @@ All scripts in this directory follow these principles:
 2. **Non-destructive** - Read-only operations
 3. **Graceful degradation** - Work without all dependencies
 4. **No core modifications** - Pure additions
+
+### farmhand-backup.sh
+
+Automated backup for Farmhand databases with retention management.
+
+```bash
+# Run backup now
+./farmhand-backup.sh
+
+# List available backups
+./farmhand-backup.sh --list
+
+# Interactive restore
+./farmhand-backup.sh --restore
+
+# Prune backups older than 30 days
+./farmhand-backup.sh --prune 30
+
+# Dry run (show what would be backed up)
+./farmhand-backup.sh --dry-run
+```
+
+**Databases backed up:**
+- `~/.beads/beads.db` - Beads issue tracker
+- `~/mcp_agent_mail/storage.sqlite3` - Agent Mail messages
+- `~/.claude/agent-state.json` - Current agent state
+
+**Default location:** `~/.farmhand-backups/`
+
+**Systemd timer installation (optional):**
+```bash
+sudo cp ~/Farmhand/systemd/farmhand-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now farmhand-backup.timer
+```
+
+Runs nightly at 3 AM with automatic pruning of backups >30 days old.
