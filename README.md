@@ -11,7 +11,7 @@
 
 ### 🚜 Transform your Ubuntu VM into an AI Coding Powerhouse 🌾
 
-[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/eaasxt/Farmhand)
+[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
 [![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#testing)
@@ -276,7 +276,7 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 
 | Agent | Alias | Mode | Auth |
 |-------|-------|------|------|
-| Claude Code | `cc` | `--dangerously-skip-permissions` | OAuth |
+| Claude Code | `cla` | `--dangerously-skip-permissions` | OAuth |
 | Codex CLI | `cod` | `--approval-mode full-auto` | Device code |
 | Gemini CLI | `gmi` | `--yolo` | OAuth |
 
@@ -654,8 +654,9 @@ cropwatch-c2d [P1] [task] open - Irrigation controller API
 #### Step 3: Start Claude in Dangerous Mode
 
 ```bash
-# Launch Claude with auto-approve (alias: cc)
-cc
+# Launch Claude with auto-approve (alias: cla)
+# Note: 'cla' instead of 'cc' to avoid conflict with C compiler
+cla
 
 # Or the full command:
 claude --dangerously-skip-permissions

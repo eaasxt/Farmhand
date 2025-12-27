@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.1.0"
+VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

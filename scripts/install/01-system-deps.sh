@@ -61,3 +61,16 @@ fi
 mkdir -p ~/.local/bin
 
 echo "==> System dependencies installed"
+
+# pytest (for running Farmhand test suite)
+if ! python3 -c "import pytest" 2>/dev/null; then
+    echo "==> Installing pytest for test suite..."
+    # Use uv if available, otherwise pip
+    if command -v uv &>/dev/null; then
+        uv pip install --system pytest 2>/dev/null || pip3 install pytest --break-system-packages
+    else
+        pip3 install pytest --break-system-packages 2>/dev/null || pip3 install pytest
+    fi
+else
+    echo "==> pytest already installed"
+fi

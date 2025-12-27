@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Farmhand v2.0.0 - Agentic VM Setup Installer
+# Farmhand v2.2.1 - Agentic VM Setup Installer
 #
 # Transforms a fresh Ubuntu VPS into a fully-configured
 # multi-agent AI coding environment.
@@ -271,7 +271,7 @@ echo "  3. Run 'codex login --device-auth' to authenticate Codex"
 echo "  4. Run 'gemini' to authenticate Gemini"
 echo ""
 echo "Quick commands:"
-echo "  cc      - Claude Code (dangerous mode)"
+echo "  cla     - Claude Code (dangerous mode)"
 echo "  cod     - Codex CLI (full auto)"
 echo "  gmi     - Gemini CLI (yolo mode)"
 echo "  bd      - Beads issue tracking"

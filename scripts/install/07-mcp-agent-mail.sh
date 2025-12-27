@@ -104,3 +104,24 @@ if [[ -f "$_REPO_ROOT_07/bin/mcp-health-check" ]]; then
         echo "    Health check timer enabled (runs every 5 min)"
     fi
 fi
+
+# Configure Claude Code to use MCP Agent Mail
+echo "==> Configuring Claude Code MCP integration..."
+mkdir -p "$HOME/.claude"
+
+# Create mcp.json with the bearer token
+cat > "$HOME/.claude/mcp.json" << EOF
+{
+  "mcpServers": {
+    "mcp-agent-mail": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/",
+      "headers": {
+        "Authorization": "Bearer $TOKEN"
+      }
+    }
+  }
+}
+EOF
+chmod 600 "$HOME/.claude/mcp.json"
+echo "    Created ~/.claude/mcp.json with MCP Agent Mail configuration"

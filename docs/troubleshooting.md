@@ -7,9 +7,10 @@
 The `bd` binary needs to be downloaded manually if the automatic download fails:
 
 ```bash
-# Download from GitHub releases
+# Download from GitHub releases (check for latest version)
+# See: https://github.com/steveyegge/beads/releases
 curl -fsSL -o ~/.local/bin/bd \
-  https://github.com/Dicklesworthstone/beads/releases/download/v0.2.0/bd-linux-amd64
+  https://github.com/steveyegge/beads/releases/latest/download/bd-linux-amd64
 chmod +x ~/.local/bin/bd
 
 # Verify
