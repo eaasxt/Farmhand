@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-MCP State Tracker Hook (PostToolUse) - v4
+MCP State Tracker Hook (PostToolUse) - v5
 ------------------------------------
 Tracks agent state after MCP tool calls:
 - Updates registration status after register_agent
 - Tracks file reservations after file_reservation_paths
 - Clears reservations after release_file_reservations
 - Tracks artifact trail (files created/modified/read)
+
+v5 Changes (Farmhand-ktf):
+- Added signal-based timeout wrapper (4.5s, under 5s external timeout)
+- Timeout triggers fail-open behavior (allows operation to proceed)
+- State tracking is non-critical - should never block user workflow
 
 ARTIFACT TRAIL: Research shows file tracking is the weakest dimension in
 agent sessions (2.2-2.5/5.0 scores). This hook tracks files touched to
@@ -24,6 +29,7 @@ import sys
 import os
 import time
 import fcntl
+import signal
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -33,9 +39,23 @@ if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
     sys.stdin.read()
     sys.exit(0)
 
+# Timeout configuration
+HOOK_TIMEOUT = 4.5  # seconds (under 5s external timeout in settings.json)
+
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
+
+
+class TimeoutError(Exception):
+    """Raised when hook execution exceeds timeout."""
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler for SIGALRM."""
+    raise TimeoutError("Hook execution timed out")
+
 
 def get_state_file():
     """Get the state file path for this agent."""
@@ -164,7 +184,9 @@ def save_state(state):
         if temp_file.exists():
             temp_file.unlink()
 
-def main():
+
+def main_logic():
+    """Core hook logic."""
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -290,6 +312,28 @@ def main():
                 save_state(state)
 
     sys.exit(0)
+
+
+def main():
+    """Entry point with timeout handling."""
+    # Set up timeout handler (fail open - state tracking is non-critical)
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, HOOK_TIMEOUT)
+
+    try:
+        main_logic()
+    except TimeoutError:
+        # Timeout - fail open (allow operation, skip state tracking)
+        # State tracking is nice-to-have, not critical
+        sys.exit(0)
+    except Exception:
+        # Any other error - fail open
+        sys.exit(0)
+    finally:
+        # Cancel timer and restore handler
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
+
 
 if __name__ == "__main__":
     main()

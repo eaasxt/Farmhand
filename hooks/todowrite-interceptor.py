@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-TodoWrite Interceptor Hook (v2 - Improved error messages)
+TodoWrite Interceptor Hook (v3 - Added timeout handling)
 ----------------------------------------------------------
 Blocks TodoWrite tool calls and instructs Claude to use bd (beads) instead.
 This enforces the multi-agent workflow where all task tracking goes through beads.
+
+v3 Changes (Farmhand-ktf):
+- Added signal-based timeout wrapper (4.5s, under 5s external timeout)
+- Timeout triggers fail-open behavior (allows TodoWrite to proceed)
+- This is a simple hook but timeout adds consistency
 
 v2 Changes (Farmhand-d2t):
 - Shows translated bd commands for each todo item
@@ -18,11 +23,24 @@ Exit codes:
 import json
 import os
 import sys
+import signal
 
-def main():
-    # Escape hatch for experienced users - bypass all enforcement
-    if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
-        sys.exit(0)
+# Timeout configuration
+HOOK_TIMEOUT = 4.5  # seconds (under 5s external timeout in settings.json)
+
+
+class TimeoutError(Exception):
+    """Raised when hook execution exceeds timeout."""
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler for SIGALRM."""
+    raise TimeoutError("Hook execution timed out")
+
+
+def main_logic():
+    """Core hook logic."""
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -90,6 +108,32 @@ See: docs/troubleshooting-flowchart.md Section A (Getting Started)"""
 
     # Not TodoWrite, allow through
     sys.exit(0)
+
+
+def main():
+    """Entry point with timeout handling."""
+    # Escape hatch for experienced users - bypass all enforcement
+    if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
+        sys.exit(0)
+
+    # Set up timeout handler (fail open - this is a simple hook)
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, HOOK_TIMEOUT)
+
+    try:
+        main_logic()
+    except TimeoutError:
+        # Timeout - fail open (allow TodoWrite to proceed)
+        # This hook is simple and shouldn't timeout
+        sys.exit(0)
+    except Exception:
+        # Any other error - fail open
+        sys.exit(0)
+    finally:
+        # Cancel timer and restore handler
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
+
 
 if __name__ == "__main__":
     main()

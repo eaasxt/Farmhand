@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-ACFS Git Safety Guard - Claude Code PreToolUse Hook (v2 - Improved error messages)
+ACFS Git Safety Guard - Claude Code PreToolUse Hook (v3 - Added timeout handling)
 
 Blocks destructive git/filesystem commands before execution to prevent
 accidental data loss. Integrates with Claude Code's hook system.
+
+v3 Changes (Farmhand-ktf):
+- Added signal-based timeout wrapper (4.5s, under 5s external timeout)
+- Timeout triggers fail-open behavior (allows command to proceed)
+- Pattern matching is fast, but timeout adds safety for edge cases
 
 v2 Changes (Farmhand-d2t):
 - Error messages now suggest safe alternatives
@@ -34,6 +39,21 @@ import json
 import os
 import re
 import sys
+import signal
+
+# Timeout configuration
+HOOK_TIMEOUT = 4.5  # seconds (under 5s external timeout in settings.json)
+
+
+class TimeoutError(Exception):
+    """Raised when hook execution exceeds timeout."""
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler for SIGALRM."""
+    raise TimeoutError("Hook execution timed out")
+
 
 # Patterns that are ALWAYS safe (checked first)
 SAFE_PATTERNS = [
@@ -224,11 +244,8 @@ def check_destructive(command: str) -> tuple:
     return False, "", ""
 
 
-def main():
-    # Escape hatch for experienced users - bypass all enforcement
-    if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
-        sys.exit(0)
-
+def main_logic():
+    """Core hook logic."""
     try:
         # Read hook input from stdin
         input_data = sys.stdin.read()
@@ -290,6 +307,31 @@ def main():
     except Exception:
         # Any other error = allow (fail open for usability)
         sys.exit(0)
+
+
+def main():
+    """Entry point with timeout handling."""
+    # Escape hatch for experienced users - bypass all enforcement
+    if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
+        sys.exit(0)
+
+    # Set up timeout handler (fail open - pattern matching shouldn't hang)
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, HOOK_TIMEOUT)
+
+    try:
+        main_logic()
+    except TimeoutError:
+        # Timeout - fail open (allow command to proceed)
+        # Pattern matching is fast, timeout is just a safety net
+        sys.exit(0)
+    except Exception:
+        # Any other error - fail open
+        sys.exit(0)
+    finally:
+        # Cancel timer and restore handler
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 if __name__ == "__main__":
