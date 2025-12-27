@@ -300,6 +300,24 @@ else
 fi
 
 echo ""
+echo "==> System Compatibility..."
+# Check GLIBC version for CASS compatibility (requires 2.39+, Ubuntu 24.04+)
+printf "%-35s" "GLIBC version (CASS needs 2.39+)"
+GLIBC_VERSION=$(ldd --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+$' || echo "0.0")
+GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1)
+GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2)
+# Compare: 2.39+ means major=2 and minor>=39, or major>2
+if [[ "$GLIBC_MAJOR" -gt 2 ]] || { [[ "$GLIBC_MAJOR" -eq 2 ]] && [[ "$GLIBC_MINOR" -ge 39 ]]; }; then
+    echo "[OK] ($GLIBC_VERSION)"
+    PASS=$((PASS + 1))
+else
+    echo "[WARN] ($GLIBC_VERSION < 2.39)"
+    echo "       CASS requires Ubuntu 24.04+ (GLIBC 2.39+)"
+    echo "       Session search will not work on this system"
+    WARN=$((WARN + 1))
+fi
+
+echo ""
 echo "==> File Permissions Security Audit..."
 
 # Function to check file permissions
