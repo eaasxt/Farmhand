@@ -4,7 +4,6 @@ Tests for git_safety_guard.py hook.
 This hook blocks destructive git and filesystem commands.
 """
 
-import json
 import pytest
 
 from conftest import run_hook, parse_hook_output
@@ -334,7 +333,7 @@ class TestHeredocStripping:
             "tool_input": {"command": cmd}
         }
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
-        output = parse_hook_output(stdout)
+        _ = parse_hook_output(stdout)  # Verify parseable output
         assert exit_code == 0, "Heredoc content should not trigger blocking"
 
     def test_unquoted_heredoc_marker(self, hook_path):
@@ -345,7 +344,7 @@ class TestHeredocStripping:
             "tool_input": {"command": cmd}
         }
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
-        output = parse_hook_output(stdout)
+        _ = parse_hook_output(stdout)  # Verify parseable output
         assert exit_code == 0, "Unquoted heredoc content should not trigger"
 
     def test_command_before_heredoc_still_checked(self, hook_path):
@@ -368,5 +367,5 @@ class TestHeredocStripping:
             "tool_input": {"command": cmd}
         }
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
-        output = parse_hook_output(stdout)
+        _ = parse_hook_output(stdout)  # Verify parseable output
         assert exit_code == 0, "Double-quoted heredoc content should not trigger"

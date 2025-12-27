@@ -5,13 +5,10 @@ This hook tracks agent state after MCP Agent Mail tool calls.
 """
 
 import json
-import os
-import time
-from pathlib import Path
 
 import pytest
 
-from conftest import run_hook, parse_hook_output
+from conftest import run_hook
 
 
 class TestMcpStateTracker:

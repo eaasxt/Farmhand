@@ -5,10 +5,8 @@ This hook enforces file reservations before allowing Edit/Write operations.
 """
 
 import json
-import os
 import sqlite3
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -280,11 +278,9 @@ class TestReservationPatternMatching:
         # This tests the fnmatch logic directly
         import fnmatch
 
-        pattern = "/home/user/project/**"
         # Note: fnmatch doesn't handle ** like gitignore
-        # The hook likely uses custom logic
-
-        # Test basic match
+        # The hook uses custom logic for ** patterns
+        # Standard fnmatch * only matches single directory level
         assert fnmatch.fnmatch("/home/user/project/file.py", "/home/user/project/*")
 
     def test_exact_path_match(self):
