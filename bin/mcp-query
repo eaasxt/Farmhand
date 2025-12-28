@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""
+mcp-query: Diagnostic CLI for MCP Agent Mail.
+
+Part of Farmhand - Multi-agent AI coding infrastructure.
+
+This script provides direct queries to MCP Agent Mail, bypassing
+local state files. Use it to diagnose agent registration, file
+reservations, and coordination issues.
+
+Usage:
+    mcp-query agents              # List registered agents
+    mcp-query reservations        # List active file reservations
+    mcp-query check <file>        # Check if a file is reserved
+    mcp-query find-pane <name>    # Find agent by pane name
+    mcp-query whois <agent>       # Get agent details + recent commits
+    mcp-query health              # Check MCP server health
+
+Examples:
+    mcp-query agents --json
+    mcp-query check src/main.py
+    mcp-query find-pane Farmhand__cc_1
+    mcp-query whois BlueLake
+"""
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+from typing import Optional
+
+# Add parent directory to path for lib imports
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from lib.mcp_client import MCPClient, MCPError, get_project_key, get_pane_name
+
+
+def format_timestamp(ts: Optional[str]) -> str:
+    """Format ISO timestamp as human-readable."""
+    if not ts:
+        return "never"
+    try:
+        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        delta = now - dt
+
+        if delta.total_seconds() < 60:
+            return "just now"
+        elif delta.total_seconds() < 3600:
+            mins = int(delta.total_seconds() / 60)
+            return f"{mins}m ago"
+        elif delta.total_seconds() < 86400:
+            hours = int(delta.total_seconds() / 3600)
+            return f"{hours}h ago"
+        else:
+            days = int(delta.total_seconds() / 86400)
+            return f"{days}d ago"
+    except (ValueError, TypeError):
+        return ts[:19] if len(ts) > 19 else ts
+
+
+def cmd_health(client: MCPClient, args) -> int:
+    """Check MCP server health."""
+    try:
+        if client.health_check():
+            if args.json:
+                print(json.dumps({"status": "ok", "endpoint": client.endpoint}))
+            else:
+                print(f"✓ MCP Agent Mail is healthy")
+                print(f"  Endpoint: {client.endpoint}")
+            return 0
+        else:
+            if args.json:
+                print(json.dumps({"status": "error", "error": "Health check failed"}))
+            else:
+                print("✗ MCP Agent Mail health check failed")
+            return 1
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"status": "error", "error": str(e)}))
+        else:
+            print(f"✗ MCP connection error: {e}")
+        return 1
+
+
+def cmd_agents(client: MCPClient, args) -> int:
+    """List registered agents."""
+    project_key = args.project or get_project_key()
+
+    try:
+        agents = client.list_agents(project_key)
+
+        if args.json:
+            print(json.dumps({"agents": agents, "count": len(agents)}, indent=2))
+            return 0
+
+        if not agents:
+            print(f"No agents registered in {project_key}")
+            return 0
+
+        print(f"Agents in {project_key}:\n")
+        for agent in agents:
+            name = agent.get("name", "?")
+            program = agent.get("program", "?")
+            model = agent.get("model", "?")
+            task = agent.get("task_description", "")
+            last_active = format_timestamp(agent.get("last_active_ts"))
+            unread = agent.get("unread_count", 0)
+
+            status = "●" if last_active in ["just now", "1m ago"] else "○"
+            mail_badge = f" [{unread} unread]" if unread > 0 else ""
+
+            print(f"  {status} {name} ({program}/{model})")
+            if task:
+                print(f"      Task: {task[:60]}{'...' if len(task) > 60 else ''}")
+            print(f"      Active: {last_active}{mail_badge}")
+            print()
+
+        print(f"Total: {len(agents)} agent(s)")
+        return 0
+
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
+        else:
+            print(f"✗ Error: {e}")
+        return 1
+
+
+def cmd_reservations(client: MCPClient, args) -> int:
+    """List active file reservations."""
+    project_key = args.project or get_project_key()
+
+    try:
+        reservations = client.list_reservations(project_key, active_only=not args.all)
+
+        if args.json:
+            print(json.dumps({"reservations": reservations, "count": len(reservations)}, indent=2))
+            return 0
+
+        if not reservations:
+            label = "active " if not args.all else ""
+            print(f"No {label}file reservations in {project_key}")
+            return 0
+
+        print(f"File reservations in {project_key}:\n")
+        for res in reservations:
+            agent = res.get("agent", "?")
+            pattern = res.get("path_pattern", "?")
+            exclusive = "exclusive" if res.get("exclusive") else "shared"
+            reason = res.get("reason", "")
+            expires = format_timestamp(res.get("expires_ts"))
+            released = res.get("released_ts")
+
+            status = "○" if released else "●"
+            state = "released" if released else f"expires {expires}"
+
+            print(f"  {status} {pattern}")
+            print(f"      By: {agent} ({exclusive})")
+            if reason:
+                print(f"      Reason: {reason}")
+            print(f"      State: {state}")
+            print()
+
+        print(f"Total: {len(reservations)} reservation(s)")
+        return 0
+
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
+        else:
+            print(f"✗ Error: {e}")
+        return 1
+
+
+def cmd_check(client: MCPClient, args) -> int:
+    """Check if a file is reserved."""
+    project_key = args.project or get_project_key()
+    file_path = args.file
+    my_name = get_pane_name()
+
+    try:
+        result = client.check_reservation(project_key, file_path, my_name)
+
+        if args.json:
+            print(json.dumps(result, indent=2))
+            return 0 if not result.get("reserved") else 1
+
+        if not result.get("reserved"):
+            print(f"✓ {file_path} is not reserved")
+            return 0
+
+        holder = result.get("holder", "unknown")
+        by_me = result.get("by_me", False)
+        exclusive = "exclusive" if result.get("exclusive") else "shared"
+        expires = format_timestamp(result.get("expires_ts"))
+        reason = result.get("reason", "")
+
+        if by_me:
+            print(f"✓ {file_path} is reserved by YOU ({holder})")
+        else:
+            print(f"✗ {file_path} is reserved by {holder}")
+
+        print(f"  Mode: {exclusive}")
+        if reason:
+            print(f"  Reason: {reason}")
+        print(f"  Expires: {expires}")
+
+        return 0 if by_me else 1
+
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
+        else:
+            print(f"✗ Error: {e}")
+        return 1
+
+
+def cmd_find_pane(client: MCPClient, args) -> int:
+    """Find agent by pane name."""
+    project_key = args.project or get_project_key()
+    pane_name = args.pane
+
+    try:
+        agent = client.find_agent_by_pane(project_key, pane_name)
+
+        if args.json:
+            if agent:
+                print(json.dumps({"found": True, "agent": agent}, indent=2))
+            else:
+                print(json.dumps({"found": False, "pane": pane_name}))
+            return 0 if agent else 1
+
+        if not agent:
+            print(f"✗ No agent found for pane: {pane_name}")
+            print()
+            print("  Either:")
+            print("  - The pane has not registered with MCP Agent Mail")
+            print("  - The task_description doesn't contain the pane name")
+            print()
+            print("  To fix, re-register with pane name in task_description:")
+            print(f'  register_agent(..., task_description="pane:{pane_name} | ...")')
+            return 1
+
+        name = agent.get("name", "?")
+        program = agent.get("program", "?")
+        model = agent.get("model", "?")
+        task = agent.get("task_description", "")
+        last_active = format_timestamp(agent.get("last_active_ts"))
+
+        print(f"✓ Found agent for pane {pane_name}:\n")
+        print(f"  MCP Name: {name}")
+        print(f"  Program:  {program}")
+        print(f"  Model:    {model}")
+        if task:
+            print(f"  Task:     {task}")
+        print(f"  Active:   {last_active}")
+
+        return 0
+
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
+        else:
+            print(f"✗ Error: {e}")
+        return 1
+
+
+def cmd_whois(client: MCPClient, args) -> int:
+    """Get detailed agent information."""
+    project_key = args.project or get_project_key()
+    agent_name = args.agent
+
+    try:
+        info = client.whois(project_key, agent_name)
+
+        if args.json:
+            print(json.dumps(info, indent=2))
+            return 0
+
+        if "error" in info:
+            print(f"✗ {info['error']}")
+            return 1
+
+        # Handle both direct response and content wrapper
+        if "content" in info:
+            # MCP response format
+            content = info.get("content", [{}])
+            if content and isinstance(content, list):
+                text = content[0].get("text", "{}")
+                try:
+                    info = json.loads(text)
+                except json.JSONDecodeError:
+                    print(f"Agent info: {text}")
+                    return 0
+
+        name = info.get("name", agent_name)
+        program = info.get("program", "?")
+        model = info.get("model", "?")
+        task = info.get("task_description", "")
+        inception = format_timestamp(info.get("inception_ts"))
+        last_active = format_timestamp(info.get("last_active_ts"))
+
+        print(f"Agent: {name}\n")
+        print(f"  Program:  {program}")
+        print(f"  Model:    {model}")
+        if task:
+            print(f"  Task:     {task}")
+        print(f"  Created:  {inception}")
+        print(f"  Active:   {last_active}")
+
+        commits = info.get("recent_commits", [])
+        if commits:
+            print(f"\n  Recent commits ({len(commits)}):")
+            for c in commits[:5]:
+                sha = c.get("hexsha", "?")[:7]
+                summary = c.get("summary", "?")[:50]
+                when = format_timestamp(c.get("authored_ts"))
+                print(f"    {sha} {summary} ({when})")
+
+        return 0
+
+    except MCPError as e:
+        if args.json:
+            print(json.dumps({"error": str(e)}))
+        else:
+            print(f"✗ Error: {e}")
+        return 1
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Query MCP Agent Mail directly (no local state)",
+        prog="mcp-query",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  mcp-query agents                    # List all agents
+  mcp-query agents --json             # JSON output
+  mcp-query reservations              # List active reservations
+  mcp-query reservations --all        # Include released
+  mcp-query check src/main.py         # Check if file is reserved
+  mcp-query find-pane Farmhand__cc_1  # Find agent by pane name
+  mcp-query whois BlueLake            # Get agent details
+  mcp-query health                    # Check MCP server health
+
+This tool queries MCP Agent Mail directly, bypassing local state files.
+Use it to diagnose registration, reservation, and coordination issues.
+        """
+    )
+
+    parser.add_argument("--json", action="store_true", help="Output JSON")
+    parser.add_argument("--project", "-p", help="Project key (default: git root or cwd)")
+
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # health
+    health_parser = subparsers.add_parser("health", help="Check MCP server health")
+    health_parser.set_defaults(func=cmd_health)
+
+    # agents
+    agents_parser = subparsers.add_parser("agents", help="List registered agents")
+    agents_parser.set_defaults(func=cmd_agents)
+
+    # reservations
+    res_parser = subparsers.add_parser("reservations", help="List file reservations")
+    res_parser.add_argument("--all", "-a", action="store_true", help="Include released")
+    res_parser.set_defaults(func=cmd_reservations)
+
+    # check
+    check_parser = subparsers.add_parser("check", help="Check if file is reserved")
+    check_parser.add_argument("file", help="File path to check")
+    check_parser.set_defaults(func=cmd_check)
+
+    # find-pane
+    pane_parser = subparsers.add_parser("find-pane", help="Find agent by pane name")
+    pane_parser.add_argument("pane", help="Pane name (e.g., Farmhand__cc_1)")
+    pane_parser.set_defaults(func=cmd_find_pane)
+
+    # whois
+    whois_parser = subparsers.add_parser("whois", help="Get agent details")
+    whois_parser.add_argument("agent", help="Agent name (e.g., BlueLake)")
+    whois_parser.set_defaults(func=cmd_whois)
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    client = MCPClient()
+    return args.func(client, args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

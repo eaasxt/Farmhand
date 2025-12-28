@@ -5,11 +5,11 @@ bd-claim: Atomically claim a bead and reserve files.
 Part of Farmhand - Multi-agent AI coding infrastructure.
 
 This script:
-1. Validates agent registration
+1. Validates agent registration (queries MCP directly)
 2. Validates bead is claimable (status=open)
-3. Reserves files via MCP Agent Mail HTTP API
+3. Reserves files via MCP Agent Mail
 4. Updates bead status and assignee via bd CLI
-5. Updates local state file
+5. Updates local state file (for hook compatibility)
 
 If file reservation succeeds but bead update fails, reservations are
 automatically released (rollback).
@@ -35,14 +35,10 @@ from pathlib import Path
 from typing import Optional
 from contextlib import contextmanager
 
-# Optional: use requests if available, fall back to urllib
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    import urllib.request
-    import urllib.error
-    HAS_REQUESTS = False
+# Add parent directory to path for lib imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from lib.mcp_client import MCPClient, MCPError, get_project_key
 
 
 # =============================================================================
@@ -50,9 +46,7 @@ except ImportError:
 # =============================================================================
 
 DEFAULT_TTL = 3600  # 1 hour
-MCP_ENDPOINT_DEFAULT = "http://127.0.0.1:8765/mcp/"
 STATE_DIR = Path.home() / ".claude"
-MCP_ENV_FILE = Path.home() / "mcp_agent_mail" / ".env"
 
 # Lock configuration (matching mcp-state-tracker.py)
 LOCK_TIMEOUT = 5.0  # seconds to wait for lock
@@ -99,54 +93,6 @@ def state_lock(lock_file: Path, timeout: float = LOCK_TIMEOUT):
                 pass
 
 
-# =============================================================================
-# Utilities
-# =============================================================================
-
-def get_mcp_endpoint() -> str:
-    """Get MCP Agent Mail endpoint from env or default."""
-    return os.environ.get("MCP_AGENT_MAIL_URL", MCP_ENDPOINT_DEFAULT)
-
-
-def get_bearer_token() -> Optional[str]:
-    """Read bearer token from MCP Agent Mail .env file."""
-    if not MCP_ENV_FILE.exists():
-        return None
-
-    try:
-        with open(MCP_ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("HTTP_BEARER_TOKEN="):
-                    token = line.split("=", 1)[1].strip()
-                    if token.startswith('"') and token.endswith('"'):
-                        token = token[1:-1]
-                    elif token.startswith("'") and token.endswith("'"):
-                        token = token[1:-1]
-                    return token
-    except IOError:
-        pass
-    return None
-
-
-def get_project_key() -> str:
-    """Get project key with priority: env var, git root, cwd."""
-    if "FARMHAND_PROJECT_KEY" in os.environ:
-        return os.environ["FARMHAND_PROJECT_KEY"]
-
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
-
-    return os.getcwd()
-
-
 def get_state_file() -> Path:
     """Get the state file path for this agent."""
     agent_name = os.environ.get("AGENT_NAME")
@@ -190,20 +136,45 @@ def save_state(state: dict) -> None:
             raise
 
 
-def get_agent_name() -> Optional[str]:
+def get_agent_name(client: MCPClient) -> Optional[str]:
     """
     Get agent name for MCP operations.
 
-    CRITICAL: Always use MCP-assigned name from state file, not AGENT_NAME env var.
-    The MCP name is what's stored in reservations and must be used consistently.
+    Priority:
+    1. State file (if registered=True and agent_name exists)
+    2. MCP query by pane name (if AGENT_NAME env var set)
+    3. None (not registered)
 
-    The AGENT_NAME env var is only used for state file path selection
-    (state-{AGENT_NAME}.json), not for the actual agent identity.
+    The AGENT_NAME env var is used for state file path selection AND
+    for finding the agent in MCP if state file is stale.
     """
+    # First check state file
     state = load_state()
     if state.get("registered") and state.get("agent_name"):
-        return state["agent_name"]
-    # Not registered - caller should handle this
+        # Verify agent still exists in MCP
+        project_key = get_project_key()
+        agent = client.find_agent_by_name(project_key, state["agent_name"])
+        if agent:
+            return state["agent_name"]
+
+    # Try to find by pane name
+    pane_name = os.environ.get("AGENT_NAME")
+    if pane_name:
+        project_key = get_project_key()
+        agent = client.find_agent_by_pane(project_key, pane_name)
+        if agent:
+            # Update state file with discovered agent
+            mcp_name = agent.get("name")
+            if mcp_name:
+                state["registered"] = True
+                state["agent_name"] = mcp_name
+                state["pane_name"] = pane_name
+                try:
+                    save_state(state)
+                except (IOError, TimeoutError):
+                    pass  # Best effort
+                return mcp_name
+
     return None
 
 
@@ -249,89 +220,33 @@ def update_bead_status(bead_id: str, agent_name: str) -> dict:
 
 
 # =============================================================================
-# MCP Agent Mail Operations (via HTTP API)
+# MCP Agent Mail Operations (via lib/mcp_client)
 # =============================================================================
 
-def mcp_request(method_name: str, arguments: dict) -> dict:
-    """Make a JSON-RPC request to MCP Agent Mail."""
-    token = get_bearer_token()
-    if not token:
-        return {"error": "Bearer token not found. Check ~/mcp_agent_mail/.env"}
-
-    endpoint = get_mcp_endpoint()
-    payload = {
-        "jsonrpc": "2.0",
-        "method": "tools/call",
-        "params": {"name": method_name, "arguments": arguments},
-        "id": 1
-    }
-
-    if HAS_REQUESTS:
-        return _mcp_request_requests(endpoint, payload, token)
-    return _mcp_request_urllib(endpoint, payload, token)
-
-
-def _mcp_request_requests(endpoint: str, payload: dict, token: str) -> dict:
-    """Make request using requests library."""
-    try:
-        response = requests.post(
-            endpoint, json=payload,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
-            timeout=10
-        )
-        result = response.json()
-        if "error" in result:
-            return {"error": result["error"].get("message", "Unknown MCP error")}
-        return result.get("result", {})
-    except requests.Timeout:
-        return {"error": "MCP Agent Mail request timed out"}
-    except requests.ConnectionError:
-        return {"error": "Cannot connect to MCP Agent Mail. Is the service running?"}
-    except requests.RequestException as e:
-        return {"error": f"MCP request failed: {e}"}
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON response from MCP Agent Mail"}
-
-
-def _mcp_request_urllib(endpoint: str, payload: dict, token: str) -> dict:
-    """Make request using urllib (fallback)."""
-    try:
-        data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(
-            endpoint, data=data,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            if "error" in result:
-                return {"error": result["error"].get("message", "Unknown MCP error")}
-            return result.get("result", {})
-    except urllib.error.URLError as e:
-        return {"error": f"Cannot connect to MCP Agent Mail: {e.reason}"}
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON response from MCP Agent Mail"}
-    except Exception as e:
-        return {"error": f"MCP request failed: {e}"}
-
-
-def reserve_files(agent_name: str, paths: list, ttl: int, reason: str) -> dict:
+def reserve_files(client: MCPClient, agent_name: str, paths: list, ttl: int, reason: str) -> dict:
     """Reserve files via MCP Agent Mail."""
-    return mcp_request("file_reservation_paths", {
-        "project_key": get_project_key(),
-        "agent_name": agent_name,
-        "paths": paths,
-        "ttl_seconds": ttl,
-        "exclusive": True,
-        "reason": reason
-    })
+    try:
+        return client.reserve_files(
+            project_key=get_project_key(),
+            agent_name=agent_name,
+            paths=paths,
+            ttl_seconds=ttl,
+            exclusive=True,
+            reason=reason
+        )
+    except MCPError as e:
+        return {"error": str(e)}
 
 
-def release_files(agent_name: str) -> dict:
+def release_files(client: MCPClient, agent_name: str) -> dict:
     """Release file reservations (rollback helper)."""
-    return mcp_request("release_file_reservations", {
-        "project_key": get_project_key(),
-        "agent_name": agent_name
-    })
+    try:
+        return client.release_files(
+            project_key=get_project_key(),
+            agent_name=agent_name
+        )
+    except MCPError as e:
+        return {"error": str(e)}
 
 
 # =============================================================================
@@ -341,8 +256,11 @@ def release_files(agent_name: str) -> dict:
 def claim(bead_id: str, paths: Optional[list], ttl: int, json_output: bool) -> int:
     """Atomically claim a bead and reserve files. Returns exit code."""
 
+    # Initialize MCP client
+    client = MCPClient()
+
     # Step 1: Validate agent registration
-    agent_name = get_agent_name()
+    agent_name = get_agent_name(client)
     if not agent_name:
         pane_name = os.environ.get("AGENT_NAME", "unknown")
         project_key = get_project_key()
@@ -401,7 +319,7 @@ def claim(bead_id: str, paths: Optional[list], ttl: int, json_output: bool) -> i
     # Step 3: Reserve files (if paths provided)
     reservation_made = False
     if paths:
-        reservation = reserve_files(agent_name, paths, ttl, bead_id)
+        reservation = reserve_files(client, agent_name, paths, ttl, bead_id)
 
         if "error" in reservation:
             error = {
@@ -452,7 +370,7 @@ def claim(bead_id: str, paths: Optional[list], ttl: int, json_output: bool) -> i
 
     if "error" in update_result:
         if reservation_made:
-            release_files(agent_name)  # Rollback
+            release_files(client, agent_name)  # Rollback
 
         error = {
             "success": False,
