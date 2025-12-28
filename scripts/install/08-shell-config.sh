@@ -97,3 +97,14 @@ fi
 
 echo "    Shell configuration complete"
 echo "    Run 'exec zsh' to start using the new shell"
+
+# Install NTM configuration for Farmhand multi-agent support
+echo "    Installing NTM configuration..."
+mkdir -p "$HOME/.config/ntm"
+if [[ -f "$_REPO_ROOT_08/config/ntm/config.toml" ]]; then
+    # Substitute __HOME__ placeholder
+    sed "s|__HOME__|$HOME|g" "$_REPO_ROOT_08/config/ntm/config.toml" > "$HOME/.config/ntm/config.toml"
+    echo "    NTM configured with AGENT_NAME support"
+else
+    echo "    WARNING: NTM config template not found"
+fi
