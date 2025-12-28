@@ -165,6 +165,7 @@ check "reservation-checker" "test -x ~/.claude/hooks/reservation-checker.py"
 check "mcp-state-tracker" "test -x ~/.claude/hooks/mcp-state-tracker.py"
 check "session-init" "test -x ~/.claude/hooks/session-init.py"
 check "bd-cleanup" "test -x ~/.local/bin/bd-cleanup"
+check "bd-claim" "test -x ~/.local/bin/bd-claim"
 
 echo ""
 echo "==> Knowledge & Vibes Workflow..."

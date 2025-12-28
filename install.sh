@@ -230,6 +230,7 @@ run_phase "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh" "MCP Agent Mail"
 run_phase "$SCRIPT_DIR/scripts/install/08-shell-config.sh" "Shell config"
 run_phase "$SCRIPT_DIR/scripts/install/09-hooks.sh" "Enforcement hooks"
 run_phase "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh" "Knowledge & Vibes"
+run_phase "$SCRIPT_DIR/scripts/install/11-bd-claim.sh" "bd-claim atomic wrapper"
 
 # Record installation
 mkdir -p "$FARMHAND_HOME"
