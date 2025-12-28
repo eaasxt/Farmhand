@@ -194,7 +194,19 @@ def main_logic():
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
-    tool_output = input_data.get("tool_output", {})
+
+    # tool_response is a JSON string for MCP tools, parse it
+    # (Claude Code passes MCP responses as JSON strings in tool_response, not tool_output)
+    tool_response_raw = input_data.get("tool_response", "")
+    if isinstance(tool_response_raw, str) and tool_response_raw:
+        try:
+            tool_output = json.loads(tool_response_raw)
+        except json.JSONDecodeError:
+            tool_output = {}
+    elif isinstance(tool_response_raw, dict):
+        tool_output = tool_response_raw
+    else:
+        tool_output = {}
 
     # MCP Agent Mail tools
     mcp_tools = {
