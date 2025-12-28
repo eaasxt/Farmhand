@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """
-Session Initialization Hook (SessionStart) - v4
+Session Initialization Hook (SessionStart) - v3
 ------------------------------------------------
 Handles cleanup and initialization at session start:
 - Clears stale agent state from previous sessions (ONLY for this agent)
 - Checks for orphaned reservations in SQLite database
 - Injects workflow context
-
-v4 Changes (Farmhand-ktf):
-- Added signal-based timeout wrapper (9s, under 10s external timeout)
-- Timeout triggers fail-open behavior (provides minimal context)
-- Session init is non-critical - should never block agent startup
 
 MULTI-AGENT SAFE: Uses AGENT_NAME env var to isolate state per agent.
 """
@@ -21,7 +16,6 @@ import os
 import sqlite3
 import time
 import fcntl
-import signal
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -30,23 +24,10 @@ from contextlib import contextmanager
 if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
     sys.exit(0)
 
-# Timeout configuration
-HOOK_TIMEOUT = 9.0  # seconds (under 10s external timeout in settings.json)
-
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
 MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
-
-
-class TimeoutError(Exception):
-    """Raised when hook execution exceeds timeout."""
-    pass
-
-
-def _timeout_handler(signum, frame):
-    """Signal handler for SIGALRM."""
-    raise TimeoutError("Hook execution timed out")
 
 
 def get_active_agent_count(minutes: int = 30) -> int:
@@ -204,9 +185,7 @@ def check_orphaned_reservations():
 
     return orphaned
 
-
-def main_logic():
-    """Core hook logic."""
+def main():
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -232,6 +211,22 @@ def main_logic():
 
     # Build context message
     context_parts = []
+
+    # Identity consistency check - log mapping between pane name and MCP name
+    if state_file.exists():
+        try:
+            with open(state_file, encoding='utf-8') as f:
+                existing_state = json.load(f)
+            mcp_name = existing_state.get("agent_name")
+            pane_name_in_state = existing_state.get("pane_name")  # noqa: F841 - kept for debugging
+            if existing_state.get("registered") and mcp_name:
+                # Show identity mapping (informational)
+                if AGENT_NAME and AGENT_NAME != mcp_name:
+                    context_parts.append(f"Identity: pane '{AGENT_NAME}' → MCP '{mcp_name}'")
+                else:
+                    context_parts.append(f"Registered as: {mcp_name}")
+        except (json.JSONDecodeError, IOError):
+            pass
 
     # Check for multi-agent conflict risk (no AGENT_NAME but multiple recent agents)
     if not AGENT_NAME:
@@ -287,41 +282,6 @@ def main_logic():
     }
     print(json.dumps(output))
     sys.exit(0)
-
-
-def main():
-    """Entry point with timeout handling."""
-    # Set up timeout handler (fail open - session init is non-critical)
-    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-    signal.setitimer(signal.ITIMER_REAL, HOOK_TIMEOUT)
-
-    try:
-        main_logic()
-    except TimeoutError:
-        # Timeout - fail open with minimal context
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "SessionStart",
-                "additionalContext": "Session init timed out. Read ~/CLAUDE.md for workflow."
-            }
-        }
-        print(json.dumps(output))
-        sys.exit(0)
-    except Exception:
-        # Any other error - fail open with minimal context
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "SessionStart",
-                "additionalContext": "Session init error. Read ~/CLAUDE.md for workflow."
-            }
-        }
-        print(json.dumps(output))
-        sys.exit(0)
-    finally:
-        # Cancel timer and restore handler
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, old_handler)
-
 
 if __name__ == "__main__":
     main()

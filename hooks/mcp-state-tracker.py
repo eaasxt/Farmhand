@@ -245,7 +245,8 @@ def main_logic():
                 agent_name = tool_output.get("name") or tool_output.get("agent_name")
                 if agent_name:
                     state["registered"] = True
-                    state["agent_name"] = agent_name
+                    state["agent_name"] = agent_name  # MCP-assigned name (for reservations)
+                    state["pane_name"] = AGENT_NAME   # Original pane name (for debugging)
                     state["registration_time"] = time.time()
                     save_state(state)
 
@@ -278,7 +279,8 @@ def main_logic():
                 agent_name = tool_output.get("name") or tool_output.get("agent_name")
                 if agent_name:
                     state["registered"] = True
-                    state["agent_name"] = agent_name
+                    state["agent_name"] = agent_name  # MCP-assigned name (for reservations)
+                    state["pane_name"] = AGENT_NAME   # Original pane name (for debugging)
                     state["registration_time"] = time.time()
 
                 # Also track any reservations from macro
