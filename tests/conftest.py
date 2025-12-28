@@ -105,6 +105,9 @@ def run_hook(hook_script: Path, input_data: dict, env: dict = None) -> tuple[int
         Tuple of (exit_code, stdout, stderr)
     """
     run_env = os.environ.copy()
+    # Clear AGENT_NAME by default to ensure isolated testing
+    # Tests that need AGENT_NAME can explicitly pass it in env
+    run_env.pop("AGENT_NAME", None)
     if env:
         run_env.update(env)
 

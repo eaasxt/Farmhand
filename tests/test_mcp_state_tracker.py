@@ -30,7 +30,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "TestAgent"}
+            "tool_response": json.dumps({"name": "TestAgent"})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -73,7 +73,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test", "program": "claude", "model": "opus"},
-            "tool_output": {"name": "TestAgent"}
+            "tool_response": json.dumps({"name": "TestAgent"})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -89,7 +89,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "mcp__mcp-agent-mail__register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "BlueLake"}
+            "tool_response": json.dumps({"name": "BlueLake"})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -112,7 +112,7 @@ class TestMcpStateTracker:
                 "exclusive": True,
                 "reason": "test-123"
             },
-            "tool_output": {"success": True}
+            "tool_response": json.dumps({"success": True})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -128,7 +128,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "release_file_reservations",
             "tool_input": {"project_key": "/home/test", "agent_name": "TestAgent"},
-            "tool_output": {"released": 1}
+            "tool_response": json.dumps({"released": 1})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -148,10 +148,10 @@ class TestMcpStateTracker:
                 "program": "claude",
                 "model": "opus"
             },
-            "tool_output": {
-                "agent_name": "GreenMountain",
+            "tool_response": json.dumps({
+                "agent": {"name": "GreenMountain"},
                 "success": True
-            }
+            })
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -169,7 +169,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "BlueLake"}
+            "tool_response": json.dumps({"name": "BlueLake"})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -188,7 +188,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "BlueLake"}
+            "tool_response": json.dumps({"name": "BlueLake"})
         }
 
         # Ensure AGENT_NAME is not set
@@ -208,7 +208,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "TestAgent"}
+            "tool_response": json.dumps({"name": "TestAgent"})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -236,7 +236,7 @@ class TestMcpStateTracker:
                 "reason": "issue-123",
                 "ttl_seconds": 7200
             },
-            "tool_output": {"success": True}
+            "tool_response": json.dumps({"success": True})
         }
 
         exit_code, stdout, stderr = run_hook(
@@ -271,7 +271,7 @@ class TestMcpStateTracker:
         input_data = {
             "tool_name": "release_file_reservations",
             "tool_input": {"project_key": "/home/test", "agent_name": "TestAgent"},
-            "tool_output": {"released": 1}
+            "tool_response": json.dumps({"released": 1})
         }
 
         exit_code, stdout, stderr = run_hook(
