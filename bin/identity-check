@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""
+identity-check: Diagnose agent identity consistency issues.
+
+Usage:
+    identity-check [--json]
+
+Checks for:
+- AGENT_NAME env var (pane name from tmux)
+- State file contents (MCP-assigned name)
+- Identity mapping consistency
+- Active file reservations
+
+The key insight: Reservations are stored under MCP-assigned names
+(e.g., "ChartreuseLake"), not pane names (e.g., "Farmhand__cc_3").
+Hooks must use the MCP name from the state file for all reservation checks.
+"""
+
+import json
+import os
+import sqlite3
+import sys
+from pathlib import Path
+
+STATE_DIR = Path.home() / ".claude"
+MCP_DB_PATH = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
+
+
+def get_state_file():
+    """Get state file path based on AGENT_NAME env var."""
+    agent_name = os.environ.get("AGENT_NAME")
+    if agent_name:
+        return STATE_DIR / f"state-{agent_name}.json"
+    return STATE_DIR / "agent-state.json"
+
+
+def load_state():
+    """Load state from file."""
+    state_file = get_state_file()
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {}
+
+
+def get_active_reservations(mcp_name: str) -> list:
+    """Get active reservations for an agent."""
+    if not MCP_DB_PATH.exists():
+        return []
+
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT fr.path_pattern, fr.exclusive, fr.expires_ts, a.name
+            FROM file_reservations fr
+            JOIN agents a ON fr.agent_id = a.id
+            WHERE fr.released_ts IS NULL
+              AND a.name = ?
+            ORDER BY fr.created_ts DESC
+        """, (mcp_name,))
+
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error:
+        return []
+
+
+def get_all_active_reservations() -> list:
+    """Get all active reservations from all agents."""
+    if not MCP_DB_PATH.exists():
+        return []
+
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT fr.path_pattern, fr.exclusive, fr.expires_ts, a.name as agent_name
+            FROM file_reservations fr
+            JOIN agents a ON fr.agent_id = a.id
+            WHERE fr.released_ts IS NULL
+            ORDER BY a.name, fr.created_ts DESC
+        """)
+
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error:
+        return []
+
+
+def main():
+    json_output = "--json" in sys.argv
+
+    pane_name = os.environ.get("AGENT_NAME")
+    state = load_state()
+    state_file = get_state_file()
+    mcp_name = state.get("agent_name")
+    registered = state.get("registered", False)
+    pane_name_in_state = state.get("pane_name")
+
+    result = {
+        "environment": {
+            "AGENT_NAME": pane_name,
+            "state_file": str(state_file),
+            "state_file_exists": state_file.exists()
+        },
+        "registration": {
+            "registered": registered,
+            "mcp_name": mcp_name,
+            "pane_name_recorded": pane_name_in_state
+        },
+        "consistency": {
+            "ok": True,
+            "issues": []
+        },
+        "reservations": [],
+        "all_reservations": []
+    }
+
+    # Check consistency
+    if not registered:
+        result["consistency"]["ok"] = False
+        result["consistency"]["issues"].append(
+            "Agent not registered with MCP Agent Mail"
+        )
+
+    if pane_name and mcp_name and pane_name == mcp_name:
+        # Unusual - pane name matches MCP name exactly
+        result["consistency"]["issues"].append(
+            f"Note: Pane name '{pane_name}' matches MCP name (unusual but OK)"
+        )
+
+    if registered and mcp_name:
+        result["reservations"] = get_active_reservations(mcp_name)
+
+    # Get all reservations for context
+    result["all_reservations"] = get_all_active_reservations()
+
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        print("=== Agent Identity Check ===\n")
+
+        print("Environment:")
+        print(f"  AGENT_NAME env var: {pane_name or '<not set>'}")
+        print(f"  State file: {state_file}")
+        print(f"  State file exists: {state_file.exists()}")
+        print()
+
+        print("Registration:")
+        if registered:
+            print(f"  ✓ Registered as: {mcp_name}")
+            if pane_name_in_state:
+                print(f"    (from pane: {pane_name_in_state})")
+        else:
+            print("  ✗ Not registered")
+        print()
+
+        print("Identity Mapping:")
+        if pane_name and mcp_name:
+            print(f"  Pane '{pane_name}' → MCP '{mcp_name}'")
+            print("  (This mapping is normal and expected)")
+        elif pane_name and not mcp_name:
+            print(f"  Pane '{pane_name}' → <not registered>")
+            print("  ⚠️  Run register_agent() to get MCP identity")
+        elif mcp_name:
+            print(f"  <no pane> → MCP '{mcp_name}'")
+        else:
+            print("  <no identity configured>")
+        print()
+
+        if result["reservations"]:
+            print(f"Your Reservations (as {mcp_name}):")
+            for r in result["reservations"]:
+                excl = "exclusive" if r["exclusive"] else "shared"
+                print(f"  • {r['path_pattern']} ({excl})")
+        else:
+            print("Your Reservations: none")
+        print()
+
+        if result["all_reservations"]:
+            print("All Active Reservations:")
+            current_agent = None
+            for r in result["all_reservations"]:
+                if r["agent_name"] != current_agent:
+                    current_agent = r["agent_name"]
+                    marker = " ← you" if current_agent == mcp_name else ""
+                    print(f"  {current_agent}{marker}:")
+                excl = "exclusive" if r["exclusive"] else "shared"
+                print(f"    • {r['path_pattern']} ({excl})")
+        print()
+
+        if result["consistency"]["issues"]:
+            print("Issues:")
+            for issue in result["consistency"]["issues"]:
+                print(f"  ⚠️  {issue}")
+        else:
+            print("✓ Identity configuration looks correct")
+        print()
+
+        # Provide fix instructions if not registered
+        if not registered:
+            print("To fix, register with MCP Agent Mail:")
+            print()
+            print("```python")
+            print("register_agent(")
+            print(f'    project_key="{Path.home()}",')
+            print('    program="claude-code",')
+            print('    model="opus-4.5"')
+            print(")")
+            print("```")
+
+
+if __name__ == "__main__":
+    main()

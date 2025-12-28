@@ -191,11 +191,20 @@ def save_state(state: dict) -> None:
 
 
 def get_agent_name() -> Optional[str]:
-    """Get agent name: from state file or AGENT_NAME env var."""
+    """
+    Get agent name for MCP operations.
+
+    CRITICAL: Always use MCP-assigned name from state file, not AGENT_NAME env var.
+    The MCP name is what's stored in reservations and must be used consistently.
+
+    The AGENT_NAME env var is only used for state file path selection
+    (state-{AGENT_NAME}.json), not for the actual agent identity.
+    """
     state = load_state()
     if state.get("registered") and state.get("agent_name"):
         return state["agent_name"]
-    return os.environ.get("AGENT_NAME")
+    # Not registered - caller should handle this
+    return None
 
 
 # =============================================================================
@@ -335,18 +344,27 @@ def claim(bead_id: str, paths: Optional[list], ttl: int, json_output: bool) -> i
     # Step 1: Validate agent registration
     agent_name = get_agent_name()
     if not agent_name:
+        pane_name = os.environ.get("AGENT_NAME", "unknown")
+        project_key = get_project_key()
         error = {
             "success": False,
-            "error": "Agent not registered",
-            "details": "Run register_agent() or set AGENT_NAME environment variable",
-            "bead_id": bead_id
+            "error": "Agent not registered with MCP Agent Mail",
+            "details": f"Pane '{pane_name}' has not registered. Run register_agent() or macro_start_session() first.",
+            "hint": "Registration assigns you a memorable name (e.g., 'ChartreuseLake') used for file reservations.",
+            "bead_id": bead_id,
+            "state_file": str(get_state_file())
         }
         if json_output:
             print(json.dumps(error, indent=2))
         else:
-            print("✗ Agent not registered\n")
-            print("  You must register before claiming work.")
-            print("  Run register_agent() via MCP, or set AGENT_NAME env var.")
+            print("✗ Agent not registered with MCP Agent Mail\n")
+            print(f"  Your pane: {pane_name}")
+            print(f"  State file: {get_state_file()}")
+            print()
+            print("  Run register_agent() or macro_start_session() first.")
+            print("  This assigns you a memorable name (e.g., 'BlueLake') for file reservations.")
+            print()
+            print(f'  register_agent(project_key="{project_key}", program="claude-code", model="opus-4.5")')
         return 1
 
     # Step 2: Validate bead exists and is claimable

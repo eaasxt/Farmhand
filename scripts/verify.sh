@@ -166,6 +166,7 @@ check "mcp-state-tracker" "test -x ~/.claude/hooks/mcp-state-tracker.py"
 check "session-init" "test -x ~/.claude/hooks/session-init.py"
 check "bd-cleanup" "test -x ~/.local/bin/bd-cleanup"
 check "bd-claim" "test -x ~/.local/bin/bd-claim"
+check_optional "identity-check" "test -x ~/.local/bin/identity-check"
 
 echo ""
 echo "==> Knowledge & Vibes Workflow..."
