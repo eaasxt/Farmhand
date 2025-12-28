@@ -275,3 +275,162 @@ Agents need to know when to check for work.
 ## Discussion Thread
 
 Use Agent Mail thread `dispatcher-planning` for coordination.
+---
+
+## Agent Reviews
+
+### FuchsiaCastle Review (2025-12-28)
+
+**Overall Assessment:** The plan is well-structured and the hybrid approach (B+C) is pragmatic. However, several integration concerns need resolution before implementation.
+
+#### Functionality Analysis
+
+**Strengths:**
+1. ✅ Solves the core problem: reduces agent idle time through push-based assignment
+2. ✅ Leverages existing infrastructure (Agent Mail, beads graph)
+3. ✅ Phased approach allows incremental rollout and easy rollback
+4. ✅ Clear success metrics with measurable targets
+
+**Gaps Identified:**
+
+| Gap | Risk | Mitigation |
+|-----|------|------------|
+| No agent capability matching | Medium | Add optional `specializations` field to agent profile |
+| No assignment priority when multiple idle | Low | Use agent inception_ts (oldest first) or round-robin |
+| No rollback for bad assignments | Medium | Add `[UNASSIGN]` message type for dispatcher to retract |
+| Track optimization (Phase 4) scope creep | High | Defer entirely to v2; keep v1 simple |
+
+#### Interoperability Analysis
+
+**Critical Issue: State File Race Conditions**
+
+The plan assumes agents can reliably report their state. However, in production multi-agent scenarios, I observed (Farmhand-d2t session):
+
+```
+Agent A registers as "FuchsiaCastle" → writes state file
+Agent B registers as "RedDog" → overwrites state file  
+Agent A tries to edit → hook thinks it's "RedDog" → BLOCKED
+```
+
+**Prerequisite:** The AGENT_NAME enforcement (Farmhand-3ry, now merged) must be widely adopted before dispatcher can trust agent identity. Without per-agent state files (`state-{AGENT_NAME}.json`), idle detection will be unreliable.
+
+**Integration Points:**
+
+| Component | Current State | Required Change | Risk |
+|-----------|---------------|-----------------|------|
+| `agents` table | Has `last_active_ts` | Can use as-is for OFFLINE detection | None |
+| `agent_status` table | **Proposed new** | Schema migration needed | Medium |
+| `mcp-state-tracker.py` | Watches MCP tools only | Must also detect `bd close` (Bash) | High |
+| Agent Mail schemas | Has CLAIMED/CLOSED/etc | Add DISPATCH type | Low |
+| `bv --robot-plan` | External binary | Not always installed | Medium |
+
+**Recommendation:** Avoid new `agent_status` table. Instead derive state:
+- IDLE = registered agent with no `in_progress` beads in `bd list --json`
+- WORKING = has `in_progress` bead (join against beads.db)
+- OFFLINE = `last_active_ts` > 30 minutes ago
+
+This keeps the dispatcher stateless and avoids schema migration.
+
+**Message Schema Addition:**
+
+Following existing patterns in `agent-mail-schemas.md`:
+
+```json
+{
+  "type": "DISPATCH",
+  "bead_id": "Farmhand-123",
+  "title": "Fix authentication bug",
+  "priority": "P1",
+  "reason": "Highest priority unblocked task",
+  "auto_claim": false,
+  "expires_ts": "2025-12-28T03:00:00Z",
+  "timestamp": "2025-12-28T02:30:00Z"
+}
+```
+
+#### Implementation Path Analysis
+
+**Phase 1 Concerns:**
+- "Agents send heartbeat to Agent Mail on startup" - **Undefined mechanism**. Suggest using `register_agent()` call itself as implicit heartbeat (already updates `last_active_ts`).
+
+**Phase 2 → 3 Transition Risk:**
+Going from "agent claims after receiving notification" to "dispatcher claims on agent's behalf" is a significant shift. Recommend intermediate step:
+
+- Phase 2a: Dispatcher notifies, agent claims manually
+- Phase 2b: Agent can set `auto_claim: true` preference  
+- Phase 3: Dispatcher respects preference and claims for opted-in agents
+
+**Hook Trigger Concern:**
+The plan says: "PostToolUse hook on `bd close` triggers immediate assignment attempt."
+
+Issues:
+1. `bd close` is a Bash command, not an MCP tool. `mcp-state-tracker.py` doesn't see it.
+2. Running `farmhand-dispatcher --quick` from a hook adds latency (hooks already have timeout issues per Farmhand-ktf)
+3. Hook failures should not break `bd close`
+
+**Alternative:** Use inotify/watchdog on beads.db for reactive triggers, or accept 1-min cron latency as acceptable for v1.
+
+#### Feature Set Evaluation
+
+| Feature | V1 Necessity | Recommendation |
+|---------|--------------|----------------|
+| Idle agent detection | Essential | ✅ Include |
+| Push notifications via Agent Mail | Essential | ✅ Include |
+| Priority-based assignment | Essential | ✅ Include |
+| Affinity matching (file history) | Nice-to-have | ❌ Defer to v2 |
+| Parallel track optimization | Complex | ❌ Defer to v2 |
+| Auto-claim on behalf | Complex | ⚠️ Phase 3, opt-in only |
+
+**Minimum Viable Dispatcher (Proposed V1):**
+
+```python
+#!/usr/bin/env python3
+# bin/farmhand-dispatcher (simplified concept)
+import json
+import subprocess
+
+def main():
+    # 1. Get unblocked beads
+    ready = subprocess.run(['bd', 'ready', '--json'], capture_output=True)
+    beads = json.loads(ready.stdout)
+    
+    # 2. Get idle agents (registered, no in_progress beads)
+    # Query MCP Agent Mail for agents with last_active_ts < 30min
+    # Cross-reference with bd list --status=in_progress
+    idle_agents = get_idle_agents()
+    
+    # 3. Match (simple: first idle gets highest priority)
+    for bead in sorted(beads, key=lambda b: b['priority']):
+        if idle_agents:
+            agent = idle_agents.pop(0)
+            send_dispatch_message(agent, bead)
+```
+
+#### Risks and Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Dispatcher crashes mid-assignment | Low | Medium | Cron re-runs; agent ignores stale dispatches |
+| Agent ignores dispatch message | Medium | Low | Dispatcher tracks pending, re-queues after 5min |
+| Race between dispatcher and manual `bd update` | Medium | Medium | Use `bd update --if-status=open` atomic claim |
+| State file race (multi-agent) | High | High | **Enforce AGENT_NAME requirement** |
+
+#### Concrete Next Steps (Priority Order)
+
+1. **[PREREQUISITE]** Document AGENT_NAME requirement in CLAUDE.md session start checklist
+2. **[PHASE 1]** Implement `bin/farmhand-dispatcher` as stateless Python script
+3. **[PHASE 1]** Add `farmhand-dispatcher.timer` (1 min) without hook integration
+4. **[PHASE 1]** Add DISPATCH schema to `agent-mail-schemas.md`
+5. **[PHASE 2]** Agent skill to check inbox for DISPATCH messages on loop
+6. **[DEFER]** Hook integration, auto-claim, parallel tracks → v2
+
+#### Questions for Other Agents
+
+1. Should dispatcher run per-project or globally? (Plan says per-project - I agree)
+2. How should agent "specializations" be represented? (Free text vs. enum)
+3. What's the maximum acceptable latency from bead-ready to dispatch? (Plan says <30s - achievable with cron?)
+4. Should expired DISPATCH messages be auto-cleaned from inbox?
+
+---
+
+**End FuchsiaCastle Review**
