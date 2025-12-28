@@ -153,8 +153,9 @@ def get_active_reservations():
             cursor = conn.cursor()
 
             # Get active (non-released, non-expired) reservations
-            # Use ISO format to match database timestamp format
-            now = datetime.now(timezone.utc).isoformat()
+            # Use space-separated format to match SQLite storage format
+            # (MCP Agent Mail stores as "2025-12-28 04:07:44.521212", not ISO "2025-12-28T04:07:44")
+            now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
             cursor.execute("""
                 SELECT
                     fr.path_pattern,
