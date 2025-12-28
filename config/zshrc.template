@@ -143,6 +143,12 @@ eval "$(atuin init zsh)"
 # ntm init disabled - outputs unexpanded Go templates causing parse errors
 # command -v ntm &>/dev/null && eval "$(ntm init zsh)"
 
+# AGENT_NAME from tmux pane title (workaround for ntm init bug)
+# Enables multi-agent state isolation per ~/CLAUDE.md
+if [[ -n "$TMUX" ]]; then
+  export AGENT_NAME=$(tmux display-message -p '#{pane_title}' 2>/dev/null)
+fi
+
 # =============================================================================
 # Vibe Mode Aliases (AI Agents)
 # =============================================================================
