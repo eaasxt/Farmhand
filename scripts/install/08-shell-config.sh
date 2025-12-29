@@ -108,3 +108,21 @@ if [[ -f "$_REPO_ROOT_08/config/ntm/config.toml" ]]; then
 else
     echo "    WARNING: NTM config template not found"
 fi
+
+# Install kitty terminfo for SSH compatibility
+echo "    Installing kitty terminfo..."
+mkdir -p "$HOME/.terminfo/x"
+curl -sL https://raw.githubusercontent.com/kovidgoyal/kitty/master/terminfo/x/xterm-kitty -o "$HOME/.terminfo/x/xterm-kitty" 2>/dev/null || {
+    echo "    WARNING: Could not download kitty terminfo"
+}
+
+# Configure tmux F6 binding for NTM command palette
+echo "    Configuring tmux F6 binding..."
+TMUX_CONF="$HOME/.tmux.conf"
+F6_BINDING='bind-key -n F6 display-popup -E -w 90% -h 90% "ntm palette"'
+if [[ ! -f "$TMUX_CONF" ]] || ! grep -qF "display-popup" "$TMUX_CONF" 2>/dev/null; then
+    echo "$F6_BINDING" >> "$TMUX_CONF"
+    echo "    Added F6 -> ntm palette binding"
+else
+    echo "    tmux F6 binding already configured"
+fi
