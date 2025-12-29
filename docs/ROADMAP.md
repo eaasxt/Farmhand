@@ -1,7 +1,7 @@
 # Farmhand Roadmap
 
-**Status:** Phases 1-3 COMPLETE. Phase 4+ in planning.
-**Last Updated:** 2025-12-28
+**Status:** Phases 1-3 COMPLETE. Phase 4 on hold.
+**Last Updated:** 2025-12-29
 
 ---
 
@@ -66,51 +66,7 @@
 
 ## Phase 4: Long-Term Vision (NOT STARTED)
 
-### 4.1 Automated Work Dispatcher
-
-**Goal:** Push-based task assignment to reduce agent idle time.
-
-**Problem:** Agents poll `bd ready` to find work. Multiple agents may race for the same bead. Idle agents don't know when new work becomes unblocked.
-
-**Solution:** A dispatcher that monitors the beads graph and proactively assigns work to available agents via Agent Mail.
-
-**Architecture (Recommended: Hybrid):**
-1. PostToolUse hook on `bd close` triggers immediate assignment attempt
-2. Cron job (every 1 min) catches any missed assignments
-3. Agent Mail for notifications ("You have been assigned Farmhand-xyz")
-
-**Implementation Phases:**
-
-| Phase | Feature | Complexity |
-|-------|---------|------------|
-| 4.1a | Idle agent detection via `last_active_ts` | Low |
-| 4.1b | Assignment notifications via Agent Mail | Medium |
-| 4.1c | Opt-in auto-claiming on behalf of agents | Medium |
-| 4.1d | Parallel track optimization | High (defer to v2) |
-
-**Agent States:**
-```
-IDLE        - Registered, no active bead, ready for work
-WORKING     - Has claimed bead, actively executing
-BLOCKED     - Waiting on dependency or resource
-OFFLINE     - No heartbeat in last N minutes
-```
-
-**Success Metrics:**
-| Metric | Current | Target |
-|--------|---------|--------|
-| Time from bead-ready to claim | Manual (minutes) | < 30 seconds |
-| Agent idle time | Unknown | < 10% of session |
-| Duplicate claims (races) | Occasional | Zero |
-
-**Open Questions:**
-1. Should dispatcher run per-project or globally? (Recommend: per-project)
-2. How should agent "specializations" be represented?
-3. What's the maximum acceptable latency from bead-ready to dispatch?
-
----
-
-### 4.2 PostgreSQL Backend Option
+### 4.1 PostgreSQL Backend Option
 
 **Priority:** Low (long-term)
 **Effort:** 2 weeks
@@ -126,7 +82,7 @@ OFFLINE     - No heartbeat in last N minutes
 
 ---
 
-### 4.3 Lossless Spec Verification Tool
+### 4.2 Lossless Spec Verification Tool
 
 **Priority:** Low (long-term)
 **Effort:** 1 week
@@ -140,7 +96,7 @@ OFFLINE     - No heartbeat in last N minutes
 
 ---
 
-### 4.4 Plugin Ecosystem
+### 4.3 Plugin Ecosystem
 
 **Priority:** Low (long-term)
 **Effort:** 2 weeks
@@ -155,7 +111,7 @@ OFFLINE     - No heartbeat in last N minutes
 
 ---
 
-### 4.5 Connection Pooling + Read Replicas
+### 4.4 Connection Pooling + Read Replicas
 
 **Priority:** Low (long-term)
 **Effort:** 3 weeks
@@ -163,7 +119,7 @@ OFFLINE     - No heartbeat in last N minutes
 **Enables:** 50+ concurrent agents.
 
 **Approach:**
-1. Switch to PostgreSQL (see 4.2)
+1. Switch to PostgreSQL (see 4.1)
 2. Add read replicas for reservation queries
 3. Use write primary for mutations
 4. Implement proper connection pooling
@@ -202,6 +158,7 @@ These were considered but rejected to preserve stability:
 | Change MCP Agent Mail protocol | Breaking change |
 | Restructure directory layout | Existing paths baked in |
 | Auto-migration of existing installs | Too risky |
+| **Automated Work Dispatcher (Phase 4.1)** | Adds complexity without clear benefit. Manual workflow (`bd ready` → `bd-claim`) works well. Race conditions already prevented by file reservations. Auto-assignment risks coordination failures. |
 
 ---
 
@@ -212,7 +169,7 @@ These were considered but rejected to preserve stability:
 | Phase 1 | Fresh install works on non-ubuntu user | ACHIEVED |
 | Phase 2 | Test suite passes, MCP auto-recovers from crashes | ACHIEVED |
 | Phase 3 | All documentation examples work as written | ACHIEVED |
-| Phase 4 | 50+ agents can run concurrently | PENDING |
+| Phase 4 | Long-term improvements as needed | ON HOLD |
 
 ---
 
