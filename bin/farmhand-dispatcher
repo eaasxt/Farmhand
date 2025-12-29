@@ -2,6 +2,19 @@
 """
 Farmhand Dispatcher - Idle Agent Detector
 Part of Phase 4.1: Automated Work Dispatcher
+
+DEPRECATED / NOT IN SCOPE (December 2025)
+==========================================
+This component is not currently in scope for development.
+The dispatcher/automated work assignment feature has been deferred.
+
+This file is retained for reference but should not be relied upon
+or extended until the feature is officially prioritized.
+
+Related beads (all closed, archived):
+- Farmhand-5cx: Implement Phase 4.1a: Idle Agent Detection
+- Farmhand-nss: Flesh out Dispatcher Planning Document
+- Farmhand-i1h: Archive dispatcher component
 """
 
 import sys
