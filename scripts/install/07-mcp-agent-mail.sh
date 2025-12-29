@@ -144,3 +144,69 @@ cat > "$HOME/.claude/mcp-reference.json" << EOF
 }
 EOF
 chmod 600 "$HOME/.claude/mcp-reference.json"
+
+# Configure Codex to use MCP Agent Mail
+echo "==> Configuring Codex MCP integration..."
+if command -v codex &> /dev/null; then
+    echo "    Adding MCP server via 'codex mcp add'..."
+    # Codex uses bearer token from environment variable
+    codex mcp add mcp-agent-mail --url "http://127.0.0.1:8765/mcp/" \
+        --bearer-token-env-var HTTP_BEARER_TOKEN 2>/dev/null && {
+        echo "    Codex MCP Agent Mail configured successfully"
+        echo "    Note: HTTP_BEARER_TOKEN env var set in ~/.zshrc"
+    } || {
+        echo "    WARNING: 'codex mcp add' failed. Manual configuration may be needed."
+    }
+else
+    echo "    Codex not installed, skipping MCP config"
+fi
+
+# Configure Gemini to use MCP Agent Mail
+echo "==> Configuring Gemini MCP integration..."
+if command -v gemini &> /dev/null; then
+    echo "    Adding MCP server to Gemini settings..."
+    mkdir -p "$HOME/.gemini"
+    # Gemini uses httpUrl (not url) for HTTP transport
+    if [[ -f "$HOME/.gemini/settings.json" ]]; then
+        # Merge with existing settings using jq if available
+        if command -v jq &>/dev/null; then
+            jq --arg token "$TOKEN" '.mcpServers["mcp-agent-mail"] = {
+                "httpUrl": "http://127.0.0.1:8765/mcp/",
+                "headers": {"Authorization": ("Bearer " + $token)},
+                "trust": true
+            }' "$HOME/.gemini/settings.json" > "$HOME/.gemini/settings.json.tmp" && \
+            mv "$HOME/.gemini/settings.json.tmp" "$HOME/.gemini/settings.json"
+            echo "    Gemini MCP Agent Mail configured successfully"
+        else
+            echo "    WARNING: jq not available, creating new Gemini settings"
+            cat > "$HOME/.gemini/settings.json" << GEMINI_EOF
+{
+  "ui": {"hideWindowTitle": true},
+  "mcpServers": {
+    "mcp-agent-mail": {
+      "httpUrl": "http://127.0.0.1:8765/mcp/",
+      "headers": {"Authorization": "Bearer $TOKEN"},
+      "trust": true
+    }
+  }
+}
+GEMINI_EOF
+        fi
+    else
+        cat > "$HOME/.gemini/settings.json" << GEMINI_EOF
+{
+  "ui": {"hideWindowTitle": true},
+  "mcpServers": {
+    "mcp-agent-mail": {
+      "httpUrl": "http://127.0.0.1:8765/mcp/",
+      "headers": {"Authorization": "Bearer $TOKEN"},
+      "trust": true
+    }
+  }
+}
+GEMINI_EOF
+        echo "    Gemini MCP Agent Mail configured successfully"
+    fi
+else
+    echo "    Gemini not installed, skipping MCP config"
+fi

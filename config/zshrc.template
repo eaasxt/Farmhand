@@ -127,6 +127,11 @@ export BEADS_DB="$HOME/.beads/beads.db"
 export BEADS_DIR="$HOME/.beads"  # Required for bv (beads-viewer)
 export BUN_INSTALL="$HOME/.bun"
 
+# MCP Agent Mail token for Codex (Codex reads from env var, not config file)
+if [[ -f "$HOME/mcp_agent_mail/.env" ]]; then
+    export HTTP_BEARER_TOKEN="$(grep -E '^HTTP_BEARER_TOKEN=' "$HOME/mcp_agent_mail/.env" | cut -d= -f2)"
+fi
+
 # =============================================================================
 # Tool Integrations
 # =============================================================================
