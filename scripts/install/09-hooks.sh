@@ -20,13 +20,13 @@ mkdir -p "$INSTALL_HOME/.local/bin"
 cp "$_REPO_DIR_09/hooks/"*.py "$INSTALL_HOME/.claude/hooks/"
 chmod +x "$INSTALL_HOME/.claude/hooks/"*.py
 
-# Copy bd-cleanup utility
-cp "$_REPO_DIR_09/bin/bd-cleanup" "$INSTALL_HOME/.local/bin/"
-chmod +x "$INSTALL_HOME/.local/bin/bd-cleanup"
-
-# Copy obs-mask utility (observation masking for large outputs)
-cp "$_REPO_DIR_09/bin/obs-mask" "$INSTALL_HOME/.local/bin/"
-chmod +x "$INSTALL_HOME/.local/bin/obs-mask"
+# Copy bin utilities to ~/.local/bin
+for tool in bd-cleanup obs-mask farmhand-doctor mcp-query agent-cleanup; do
+    if [[ -f "$_REPO_DIR_09/bin/$tool" ]]; then
+        cp "$_REPO_DIR_09/bin/$tool" "$INSTALL_HOME/.local/bin/"
+        chmod +x "$INSTALL_HOME/.local/bin/$tool"
+    fi
+done
 
 # Install settings.json from template with __HOME__ substitution
 SETTINGS_FILE="$INSTALL_HOME/.claude/settings.json"
@@ -115,7 +115,7 @@ SETTINGS
 fi
 
 echo "  Installed hooks to $INSTALL_HOME/.claude/hooks/"
-echo "  Installed bd-cleanup, obs-mask to $INSTALL_HOME/.local/bin/"
+echo "  Installed bin tools to $INSTALL_HOME/.local/bin/"
 echo "  Configured $SETTINGS_FILE"
 
 # Install git pre-commit hook for UBS scanning
