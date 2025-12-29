@@ -3,12 +3,22 @@
 # Farmhand - Phase 10: Knowledge & Vibes Workflow Layer
 #
 # Installs the structured workflow system:
-# - 13 base skills from knowledge_and_vibes submodule
-# - 14 Farmhand-specific skills (some override K&V versions)
-# - 10 K&V commands + 3 Farmhand commands
+# - 5 compatible K&V skills (agent-mail, beads-cli, beads-viewer, calibrate, release)
+# - 13 Farmhand-specific skills (replace 8 conflicting K&V skills)
+# - 10 K&V commands + 3 Farmhand commands = 13 total
 # - 3 behavior rules (beads, multi-agent, safety)
 # - 8+ documentation templates
 # - Protocol documentation
+#
+# NOTE: 8 K&V skills are intentionally skipped because Farmhand has better versions:
+#   - advance → next-bead + bead-workflow
+#   - decompose → decompose-task
+#   - explore → warp-grep
+#   - ground → external-docs
+#   - prime → prime (enhanced with agents/)
+#   - recall → cass-memory + cass-search + project-memory
+#   - resolve → disagreement-resolution
+#   - verify → ubs-scanner
 #
 
 # Use local variable to avoid clobbering parent's SCRIPT_DIR when sourced
@@ -37,12 +47,17 @@ mkdir -p ~/.claude/rules
 mkdir -p ~/templates
 mkdir -p ~/docs/protocols
 
-# Copy K&V base skills (13 skill definitions)
-echo "    Installing K&V base skills..."
-cp -r "$K_AND_V/.claude/skills/"* ~/.claude/skills/
+# Copy only compatible K&V skills (5 of 13 - others conflict with Farmhand versions)
+# Compatible: agent-mail, beads-cli, beads-viewer, calibrate, release
+echo "    Installing compatible K&V skills (5)..."
+for skill in agent-mail beads-cli beads-viewer calibrate release; do
+    if [[ -d "$K_AND_V/.claude/skills/$skill" ]]; then
+        cp -r "$K_AND_V/.claude/skills/$skill" ~/.claude/skills/
+    fi
+done
 
-# Copy Farmhand-specific skills (14 skills, some override K&V versions)
-echo "    Installing Farmhand skills..."
+# Copy Farmhand-specific skills (13 skills - includes replacements for 8 K&V skills)
+echo "    Installing Farmhand skills (13)..."
 if [[ -d "$_SCRIPT_DIR_10/config/skills" ]]; then
     cp -r "$_SCRIPT_DIR_10/config/skills/"* ~/.claude/skills/
 else
@@ -86,11 +101,11 @@ fi
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
 COMMANDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
 
-# Expected: 13 K&V + 14 Farmhand = ~24 skills (some overlap), 10 K&V + 3 Farmhand = 13 commands
-if [[ "$SKILLS_COUNT" -ge 20 && "$COMMANDS_COUNT" -ge 10 ]]; then
+# Expected: 5 K&V + 13 Farmhand = 18 skills, 10 K&V + 3 Farmhand = 13 commands
+if [[ "$SKILLS_COUNT" -ge 18 && "$COMMANDS_COUNT" -ge 13 ]]; then
     echo -e "${GREEN}    ✓ Workflow layer installed ($SKILLS_COUNT skills, $COMMANDS_COUNT commands)${NC}"
-elif [[ "$SKILLS_COUNT" -ge 13 && "$COMMANDS_COUNT" -ge 7 ]]; then
-    echo -e "${YELLOW}    ⚠ Partial installation: $SKILLS_COUNT skills, $COMMANDS_COUNT commands (Farmhand skills may be missing)${NC}"
+elif [[ "$SKILLS_COUNT" -ge 13 && "$COMMANDS_COUNT" -ge 10 ]]; then
+    echo -e "${YELLOW}    ⚠ Partial installation: $SKILLS_COUNT skills, $COMMANDS_COUNT commands${NC}"
 else
     echo -e "${RED}    ✗ Installation incomplete: $SKILLS_COUNT skills, $COMMANDS_COUNT commands${NC}"
 fi

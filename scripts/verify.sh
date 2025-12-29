@@ -170,10 +170,10 @@ check_optional "identity-check" "test -x ~/.local/bin/identity-check"
 
 echo ""
 echo "==> Knowledge & Vibes Workflow..."
-# Check skills directory has content (13 K&V + 14 Farmhand = ~24, with some overlap expect 20+)
-printf "%-35s" "Skills (24 expected)"
+# Check skills directory has content (5 K&V + 13 Farmhand = 18)
+printf "%-35s" "Skills (18 expected)"
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
-if [[ "$SKILLS_COUNT" -ge 20 ]]; then
+if [[ "$SKILLS_COUNT" -ge 18 ]]; then
     echo "[OK] ($SKILLS_COUNT installed)"
     PASS=$((PASS + 1))
 else
@@ -184,7 +184,7 @@ fi
 # Check commands (10 K&V + 3 Farmhand = 13)
 printf "%-35s" "Commands (13 expected)"
 CMDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
-if [[ "$CMDS_COUNT" -ge 10 ]]; then
+if [[ "$CMDS_COUNT" -ge 13 ]]; then
     echo "[OK] ($CMDS_COUNT installed)"
     PASS=$((PASS + 1))
 else
