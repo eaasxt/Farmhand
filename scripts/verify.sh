@@ -170,10 +170,10 @@ check_optional "identity-check" "test -x ~/.local/bin/identity-check"
 
 echo ""
 echo "==> Knowledge & Vibes Workflow..."
-# Check skills directory has content
-printf "%-35s" "Skills (18 expected)"
+# Check skills directory has content (13 K&V + 14 Farmhand = ~24, with some overlap expect 20+)
+printf "%-35s" "Skills (24 expected)"
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
-if [[ "$SKILLS_COUNT" -ge 15 ]]; then
+if [[ "$SKILLS_COUNT" -ge 20 ]]; then
     echo "[OK] ($SKILLS_COUNT installed)"
     PASS=$((PASS + 1))
 else
@@ -181,10 +181,10 @@ else
     FAIL=$((FAIL + 1))
 fi
 
-# Check commands
-printf "%-35s" "Commands (7 expected)"
+# Check commands (10 K&V + 3 Farmhand = 13)
+printf "%-35s" "Commands (13 expected)"
 CMDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
-if [[ "$CMDS_COUNT" -ge 5 ]]; then
+if [[ "$CMDS_COUNT" -ge 10 ]]; then
     echo "[OK] ($CMDS_COUNT installed)"
     PASS=$((PASS + 1))
 else
@@ -305,9 +305,10 @@ echo ""
 echo "==> System Compatibility..."
 # Check GLIBC version for CASS compatibility (requires 2.39+, Ubuntu 24.04+)
 printf "%-35s" "GLIBC version (CASS needs 2.39+)"
-GLIBC_VERSION=$(ldd --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+$' || echo "0.0")
-GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1)
-GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2)
+# Note: tr -d '\n' strips trailing newline that breaks bash arithmetic
+GLIBC_VERSION=$(ldd --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+$' | tr -d '\n' || echo "0.0")
+GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1 | tr -d '\n')
+GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2 | tr -d '\n')
 # Compare: 2.39+ means major=2 and minor>=39, or major>2
 if [[ "$GLIBC_MAJOR" -gt 2 ]] || { [[ "$GLIBC_MAJOR" -eq 2 ]] && [[ "$GLIBC_MINOR" -ge 39 ]]; }; then
     echo "[OK] ($GLIBC_VERSION)"

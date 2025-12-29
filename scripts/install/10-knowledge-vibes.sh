@@ -2,11 +2,12 @@
 #
 # Farmhand - Phase 10: Knowledge & Vibes Workflow Layer
 #
-# Installs the structured workflow system from knowledge_and_vibes:
-# - 18 skills for common development patterns
-# - 7 slash commands (/prime, /calibrate, /execute, etc.)
+# Installs the structured workflow system:
+# - 13 base skills from knowledge_and_vibes submodule
+# - 14 Farmhand-specific skills (some override K&V versions)
+# - 10 K&V commands + 3 Farmhand commands
 # - 3 behavior rules (beads, multi-agent, safety)
-# - 8 documentation templates
+# - 8+ documentation templates
 # - Protocol documentation
 #
 
@@ -36,13 +37,29 @@ mkdir -p ~/.claude/rules
 mkdir -p ~/templates
 mkdir -p ~/docs/protocols
 
-# Copy skills (18 skill definitions)
-echo "    Installing 18 skills..."
+# Copy K&V base skills (13 skill definitions)
+echo "    Installing K&V base skills..."
 cp -r "$K_AND_V/.claude/skills/"* ~/.claude/skills/
 
-# Copy commands (7 slash commands)
-echo "    Installing 7 commands..."
+# Copy Farmhand-specific skills (14 skills, some override K&V versions)
+echo "    Installing Farmhand skills..."
+if [[ -d "$_SCRIPT_DIR_10/config/skills" ]]; then
+    cp -r "$_SCRIPT_DIR_10/config/skills/"* ~/.claude/skills/
+else
+    echo -e "${YELLOW}    Warning: Farmhand skills not found at $_SCRIPT_DIR_10/config/skills${NC}"
+fi
+
+# Copy K&V commands (10 slash commands)
+echo "    Installing K&V commands..."
 cp -r "$K_AND_V/.claude/commands/"* ~/.claude/commands/
+
+# Copy Farmhand-specific commands (3 additional commands)
+echo "    Installing Farmhand commands..."
+if [[ -d "$_SCRIPT_DIR_10/config/commands" ]]; then
+    cp -r "$_SCRIPT_DIR_10/config/commands/"* ~/.claude/commands/
+else
+    echo -e "${YELLOW}    Warning: Farmhand commands not found at $_SCRIPT_DIR_10/config/commands${NC}"
+fi
 
 # Copy rules (3 behavior rules)
 echo "    Installing 3 rules..."
@@ -69,10 +86,13 @@ fi
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
 COMMANDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
 
-if [[ "$SKILLS_COUNT" -ge 10 && "$COMMANDS_COUNT" -ge 5 ]]; then
-    echo -e "${GREEN}    ✓ Knowledge & Vibes installed ($SKILLS_COUNT skills, $COMMANDS_COUNT commands)${NC}"
+# Expected: 13 K&V + 14 Farmhand = ~24 skills (some overlap), 10 K&V + 3 Farmhand = 13 commands
+if [[ "$SKILLS_COUNT" -ge 20 && "$COMMANDS_COUNT" -ge 10 ]]; then
+    echo -e "${GREEN}    ✓ Workflow layer installed ($SKILLS_COUNT skills, $COMMANDS_COUNT commands)${NC}"
+elif [[ "$SKILLS_COUNT" -ge 13 && "$COMMANDS_COUNT" -ge 7 ]]; then
+    echo -e "${YELLOW}    ⚠ Partial installation: $SKILLS_COUNT skills, $COMMANDS_COUNT commands (Farmhand skills may be missing)${NC}"
 else
-    echo -e "${YELLOW}    ⚠ Partial installation: $SKILLS_COUNT skills, $COMMANDS_COUNT commands${NC}"
+    echo -e "${RED}    ✗ Installation incomplete: $SKILLS_COUNT skills, $COMMANDS_COUNT commands${NC}"
 fi
 
 echo ""
