@@ -11,10 +11,10 @@
 
 ### 🚜 Transform your Ubuntu VM into an AI Coding Powerhouse 🌾
 
-[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/eaasxt/Farmhand)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-129%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-30%2B-purple.svg)](#-what-gets-installed)
 
 *One command. 30+ tools. Multiple AI agents working in harmony.*
@@ -1231,6 +1231,7 @@ python3 -m pytest tests/ -v
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **v2.2.3** | Dec 2025 | Dispatcher archival, bd-claim fixes, version sync, 129 tests |
 | **v2.2.2** | Dec 2025 | Context engineering: artifact trail, obs-mask, structured Agent Mail schemas, degradation probes |
 | **v2.2.0** | Dec 2025 | bd v0.36 molecular bonding, UBS v5.0 + ast-grep, CASS v0.1.36, NTM v1.2 |
 | **v2.1.0** | Dec 2025 | Knowledge & Vibes workflow, 92 tests, hook enforcement, escape hatch |
@@ -1239,6 +1240,12 @@ python3 -m pytest tests/ -v
 
 <details>
 <summary>Detailed changelog</summary>
+
+### v2.2.3 (December 2025)
+- **Dispatcher Archival**: Removed experimental dispatcher concept (adds complexity without benefit)
+- **bd-claim Fixes**: Fixed STATE_DIR evaluated at import time, added MCPError handling
+- **Version Sync**: Aligned VERSION, install.sh, README badges
+- 129 tests (up from 120)
 
 ### v2.2.2 (December 2025)
 - **Context Engineering Features** from research analysis:

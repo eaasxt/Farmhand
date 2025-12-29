@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Farmhand v2.2.1 - Agentic VM Setup Installer
+# Farmhand v2.2.3 - Agentic VM Setup Installer
 #
 # Transforms a fresh Ubuntu VPS into a fully-configured
 # multi-agent AI coding environment.
