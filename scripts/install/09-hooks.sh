@@ -14,14 +14,19 @@ echo "Installing enforcement hooks..."
 
 # Create directories
 mkdir -p "$INSTALL_HOME/.claude/hooks"
+mkdir -p "$INSTALL_HOME/.claude/lib"
 mkdir -p "$INSTALL_HOME/.local/bin"
 
 # Copy hooks
 cp "$_REPO_DIR_09/hooks/"*.py "$INSTALL_HOME/.claude/hooks/"
 chmod +x "$INSTALL_HOME/.claude/hooks/"*.py
 
+# Copy lib (shared libraries for hooks)
+cp "$_REPO_DIR_09/lib/"*.py "$INSTALL_HOME/.claude/lib/"
+echo "  Installed lib to $INSTALL_HOME/.claude/lib/"
+
 # Copy bin utilities to ~/.local/bin
-for tool in bd-cleanup obs-mask farmhand-doctor mcp-query agent-cleanup; do
+for tool in bd-cleanup bd-claim obs-mask farmhand-doctor mcp-query mcp-health-check agent-cleanup identity-check cass; do
     if [[ -f "$_REPO_DIR_09/bin/$tool" ]]; then
         cp "$_REPO_DIR_09/bin/$tool" "$INSTALL_HOME/.local/bin/"
         chmod +x "$INSTALL_HOME/.local/bin/$tool"
@@ -86,11 +91,21 @@ else
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session",
+        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session|Write|Edit|Read",
         "hooks": [
           {
             "type": "command",
             "command": "$INSTALL_HOME/.claude/hooks/mcp-state-tracker.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$INSTALL_HOME/.claude/hooks/inbox-reminder.py",
             "timeout": 5
           }
         ]
