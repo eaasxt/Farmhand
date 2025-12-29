@@ -6,9 +6,10 @@ projects_base = "__HOME__"
 [agents]
 # AGENT_NAME is set from tmux pane title for Farmhand multi-agent state isolation
 # This enables per-agent state files (~/.claude/state-{AGENT_NAME}.json)
-claude = "AGENT_NAME=\"$(tmux display-message -p '#{pane_title}')\" NODE_OPTIONS=\"--max-old-space-size=32768\" ENABLE_BACKGROUND_TASKS=1 claude --dangerously-skip-permissions{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-prompt-file {{shellQuote .SystemPromptFile}}{{end}}"
-codex = "AGENT_NAME=\"$(tmux display-message -p '#{pane_title}')\" {{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT=\"$(cat {{shellQuote .SystemPromptFile}})\" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default \"gpt-4\")}} -c model_reasoning_effort=\"high\" -c model_reasoning_summary_format=experimental --enable web_search_request"
-gemini = "AGENT_NAME=\"$(tmux display-message -p '#{pane_title}')\" gemini{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-instruction-file {{shellQuote .SystemPromptFile}}{{end}} --yolo"
+# CRITICAL: Use -t "$TMUX_PANE" to query THIS pane's title, not the active pane
+claude = "AGENT_NAME=\"$(tmux display-message -t \"$TMUX_PANE\" -p '#{pane_title}')\" NODE_OPTIONS=\"--max-old-space-size=32768\" ENABLE_BACKGROUND_TASKS=1 claude --dangerously-skip-permissions{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-prompt-file {{shellQuote .SystemPromptFile}}{{end}}"
+codex = "AGENT_NAME=\"$(tmux display-message -t \"$TMUX_PANE\" -p '#{pane_title}')\" {{if .SystemPromptFile}}CODEX_SYSTEM_PROMPT=\"$(cat {{shellQuote .SystemPromptFile}})\" {{end}}codex --dangerously-bypass-approvals-and-sandbox -m {{shellQuote (.Model | default \"gpt-4\")}} -c model_reasoning_effort=\"high\" -c model_reasoning_summary_format=experimental --enable web_search_request"
+gemini = "AGENT_NAME=\"$(tmux display-message -t \"$TMUX_PANE\" -p '#{pane_title}')\" gemini{{if .Model}} --model {{shellQuote .Model}}{{end}}{{if .SystemPromptFile}} --system-instruction-file {{shellQuote .SystemPromptFile}}{{end}} --yolo"
 
 [agent_mail]
 # MCP Agent Mail integration for multi-agent coordination

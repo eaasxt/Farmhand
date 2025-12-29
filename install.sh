@@ -25,7 +25,7 @@ if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
     FARMHAND_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 else
     # Fallback for curl | bash installation
-    FARMHAND_VERSION="2.2.1"
+    FARMHAND_VERSION="2.2.3"
 fi
 
 # Colors
