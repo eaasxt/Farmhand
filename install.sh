@@ -274,6 +274,7 @@ echo -e "                         Farmhand ${GREEN}v$FARMHAND_VERSION${NC} insta
 echo ""
 echo "Next steps:"
 echo "  1. Configure terminal and tmux:"
+echo "     mkdir -p ~/.terminfo/x && curl -sL https://raw.githubusercontent.com/kovidgoyal/kitty/master/terminfo/x/xterm-kitty -o ~/.terminfo/x/xterm-kitty"
 echo "     echo 'export TERM=xterm-256color' >> ~/.zshrc"
 echo "     echo 'bind-key -n F6 display-popup -E -w 90% -h 90% \"ntm palette\"' >> ~/.tmux.conf"
 echo "     source ~/.zshrc"
