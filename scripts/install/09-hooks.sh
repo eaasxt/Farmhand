@@ -174,4 +174,26 @@ else
     echo "  Warning: NTM command palette not found in repo"
 fi
 
+# IMPROVED: Configure MCP token for Claude Code
+echo "  Configuring MCP integration..."
+TOKEN_MANAGER="$_REPO_DIR_09/bin/token-manager.sh"
+if [[ -f "$TOKEN_MANAGER" ]]; then
+    chmod +x "$TOKEN_MANAGER"
+    
+    # Check if we have a token available
+    if "$TOKEN_MANAGER" get >/dev/null 2>&1; then
+        echo "    Found existing MCP token, injecting into Claude configuration..."
+        if "$TOKEN_MANAGER" inject; then
+            echo "    ✓ MCP token configured for Claude Code"
+        else
+            echo "    WARNING: Failed to inject MCP token into Claude configuration"
+            echo "    Run manually: $TOKEN_MANAGER inject"
+        fi
+    else
+        echo "    No MCP token found - will be configured when MCP Agent Mail is installed"
+    fi
+else
+    echo "    Token manager not available - MCP configuration will need manual setup"
+fi
+
 echo "Enforcement hooks installed."

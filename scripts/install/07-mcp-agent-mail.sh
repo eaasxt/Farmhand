@@ -35,20 +35,48 @@ uv python install 3.14 2>/dev/null || true
 echo "==> Installing dependencies..."
 uv sync
 
-# Generate bearer token for authentication
+# IMPROVED: Generate token using centralized token manager
 echo "==> Generating authentication token..."
-if [[ ! -f .env ]] || ! grep -q 'HTTP_BEARER_TOKEN=' .env; then
+
+# Check if token manager is available
+TOKEN_MANAGER="$_REPO_ROOT_07/bin/token-manager.sh"
+if [[ -f "$TOKEN_MANAGER" ]]; then
+    echo "    Using Farmhand Token Manager..."
+    chmod +x "$TOKEN_MANAGER"
+    
+    # Generate token using centralized manager
+    if "$TOKEN_MANAGER" generate; then
+        TOKEN=$("$TOKEN_MANAGER" get)
+        echo "    Token generated and stored securely"
+    else
+        echo "    ERROR: Failed to generate token with token manager"
+        exit 1
+    fi
+else
+    echo "    WARNING: Token manager not found, using fallback method"
+    # Fallback to original method (but don't store in /tmp)
     TOKEN=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null || \
             openssl rand -hex 32)
-    echo "HTTP_BEARER_TOKEN=$TOKEN" > .env
-    echo "    Token generated and saved to .env"
-else
-    TOKEN=$(grep -E '^HTTP_BEARER_TOKEN=' .env | sed -E 's/^HTTP_BEARER_TOKEN=//')
-    echo "    Using existing token from .env"
+    echo "    Generated fallback token"
 fi
 
-# Store token for later use in Claude Code config
-echo "$TOKEN" > /tmp/mcp_agent_mail_token
+# Store token in MCP Agent Mail .env file
+if [[ ! -f .env ]] || ! grep -q 'HTTP_BEARER_TOKEN=' .env; then
+    echo "HTTP_BEARER_TOKEN=$TOKEN" > .env
+    echo "    Token saved to MCP Agent Mail .env"
+else
+    # Update existing token
+    if grep -q '^HTTP_BEARER_TOKEN=' .env; then
+        sed -i "s/^HTTP_BEARER_TOKEN=.*/HTTP_BEARER_TOKEN=$TOKEN/" .env
+        echo "    Updated existing token in .env"
+    else
+        echo "HTTP_BEARER_TOKEN=$TOKEN" >> .env
+        echo "    Added token to existing .env"
+    fi
+fi
+
+# REMOVED: No longer store token in /tmp (security vulnerability)
+# OLD: echo "$TOKEN" > /tmp/mcp_agent_mail_token
 
 echo "==> MCP Agent Mail installed at $INSTALL_DIR"
 
@@ -104,3 +132,20 @@ if [[ -f "$_REPO_ROOT_07/bin/mcp-health-check" ]]; then
         echo "    Health check timer enabled (runs every 5 min)"
     fi
 fi
+
+# IMPROVED: Validate MCP installation with token
+echo "    Validating MCP installation..."
+if [[ -f "$TOKEN_MANAGER" ]]; then
+    # Wait a moment for service to start
+    sleep 3
+    
+    if "$TOKEN_MANAGER" validate; then
+        echo "    ✓ MCP Agent Mail installation validated successfully"
+    else
+        echo "    WARNING: MCP validation failed - may need manual configuration"
+        echo "    Try: sudo systemctl restart mcp-agent-mail"
+    fi
+else
+    echo "    WARNING: Cannot validate installation - token manager not available"
+fi
+
