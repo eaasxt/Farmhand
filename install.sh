@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Farmhand v2.0.0 - Agentic VM Setup Installer
+# Farmhand v2.2.3 - Agentic VM Setup Installer
 #
 # Transforms a fresh Ubuntu VPS into a fully-configured
 # multi-agent AI coding environment.
@@ -17,9 +17,16 @@
 
 set -euo pipefail
 
-FARMHAND_VERSION="2.2.1"
 FARMHAND_HOME="$HOME/.farmhand"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Read version from VERSION file if available, otherwise use fallback
+if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+    FARMHAND_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
+else
+    # Fallback for curl | bash installation
+    FARMHAND_VERSION="2.2.3"
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -223,6 +230,7 @@ run_phase "$SCRIPT_DIR/scripts/install/07-mcp-agent-mail.sh" "MCP Agent Mail"
 run_phase "$SCRIPT_DIR/scripts/install/08-shell-config.sh" "Shell config"
 run_phase "$SCRIPT_DIR/scripts/install/09-hooks.sh" "Enforcement hooks"
 run_phase "$SCRIPT_DIR/scripts/install/10-knowledge-vibes.sh" "Knowledge & Vibes"
+run_phase "$SCRIPT_DIR/scripts/install/11-bd-claim.sh" "bd-claim atomic wrapper"
 
 # Record installation
 mkdir -p "$FARMHAND_HOME"
@@ -265,13 +273,13 @@ echo ""
 echo -e "                         Farmhand ${GREEN}v$FARMHAND_VERSION${NC} installed successfully!"
 echo ""
 echo "Next steps:"
-echo "  1. Run 'exec zsh' to switch to the new shell (keyboard bindings included)"
+echo "  1. Run 'exec zsh' to switch to the new shell"
 echo "  2. Run 'claude' to authenticate Claude Code"
 echo "  3. Run 'codex login --device-auth' to authenticate Codex"
 echo "  4. Run 'gemini' to authenticate Gemini"
 echo ""
 echo "Quick commands:"
-echo "  cc      - Claude Code (dangerous mode)"
+echo "  cla     - Claude Code (dangerous mode)"
 echo "  cod     - Codex CLI (full auto)"
 echo "  gmi     - Gemini CLI (yolo mode)"
 echo "  bd      - Beads issue tracking"

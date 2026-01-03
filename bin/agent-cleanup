@@ -17,7 +17,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 MCP_DB = Path.home() / "mcp_agent_mail" / "storage.sqlite3"
@@ -41,9 +41,10 @@ def get_stale_agents(conn, hours):
     all_agents = cursor.fetchall()
     
     # Calculate threshold
-    threshold = datetime.utcnow() - timedelta(hours=hours)
-    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
-    
+    threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
+    # Use same format as database: space-separated, no timezone suffix
+    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S.%f')
+
     # Get stale agents
     cursor.execute("""
         SELECT a.id, a.name, p.slug as project, a.program, a.model,
@@ -63,10 +64,11 @@ def get_orphaned_reservations(conn, hours):
     orphaned = []
     cursor = conn.cursor()
 
-    now = datetime.utcnow()
-    now_str = now.strftime('%Y-%m-%d %H:%M:%S')
+    now = datetime.now(timezone.utc)
+    # Use same format as database: space-separated, no timezone suffix
+    now_str = now.strftime('%Y-%m-%d %H:%M:%S.%f')
     threshold = now - timedelta(hours=hours)
-    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+    threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S.%f')
 
     # Get all non-released reservations that are either expired or stale
     cursor.execute("""
@@ -89,11 +91,11 @@ def get_orphaned_reservations(conn, hours):
             created_at = datetime.fromisoformat(row[3].replace('Z', '+00:00')) if row[3] else now
             expires_at = datetime.fromisoformat(row[4].replace('Z', '+00:00')) if row[4] else now
 
-            # Handle timezone-naive datetimes
-            if created_at.tzinfo:
-                created_at = created_at.replace(tzinfo=None)
-            if expires_at.tzinfo:
-                expires_at = expires_at.replace(tzinfo=None)
+            # Ensure timezone-aware for comparison with now (which is UTC)
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
 
             is_expired = expires_at < now
             age_hours = (now - created_at).total_seconds() / 3600
@@ -140,7 +142,8 @@ def delete_orphaned_reservations(conn, orphaned):
     """Release orphaned reservations in the database."""
     cursor = conn.cursor()
     released = 0
-    now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+    # Use same format as database: space-separated, no timezone suffix
+    now_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
 
     for item in orphaned:
         try:

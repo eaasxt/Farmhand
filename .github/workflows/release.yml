@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Verify VERSION file matches tag
+        run: |
+          FILE_VERSION=$(cat VERSION)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "ERROR: VERSION file ($FILE_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $TAG_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "Changes since $PREV_TAG:" > CHANGELOG.txt
+            git log --pretty=format:"- %s" $PREV_TAG..HEAD >> CHANGELOG.txt
+          else
+            echo "Initial release" > CHANGELOG.txt
+          fi
+          cat CHANGELOG.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Farmhand v${{ steps.version.outputs.version }}
+          body_path: CHANGELOG.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true

@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly Farmhand Database Backup
+
+[Timer]
+# Run at 3 AM every day
+OnCalendar=*-*-* 03:00:00
+# Run immediately if we missed the last scheduled time
+Persistent=true
+# Add random delay up to 30 minutes to avoid thundering herd
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

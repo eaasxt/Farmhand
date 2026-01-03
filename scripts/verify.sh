@@ -2,10 +2,17 @@
 # Note: Not using set -e because arithmetic operations can return non-zero
 set -uo pipefail
 
-# Verify Farmhand v2.2.1 installation
+# Get version from VERSION file or default
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION_FILE="$SCRIPT_DIR/../VERSION"
+if [[ -f "$VERSION_FILE" ]]; then
+    FARMHAND_VERSION=$(cat "$VERSION_FILE")
+else
+    FARMHAND_VERSION="unknown"
+fi
 
 echo "=========================================="
-echo "  Farmhand v2.2.1 Installation Verify"
+echo "  Farmhand v${FARMHAND_VERSION} Installation Verify"
 echo "=========================================="
 echo ""
 
@@ -158,13 +165,15 @@ check "reservation-checker" "test -x ~/.claude/hooks/reservation-checker.py"
 check "mcp-state-tracker" "test -x ~/.claude/hooks/mcp-state-tracker.py"
 check "session-init" "test -x ~/.claude/hooks/session-init.py"
 check "bd-cleanup" "test -x ~/.local/bin/bd-cleanup"
+check "bd-claim" "test -x ~/.local/bin/bd-claim"
+check_optional "identity-check" "test -x ~/.local/bin/identity-check"
 
 echo ""
 echo "==> Knowledge & Vibes Workflow..."
-# Check skills directory has content
+# Check skills directory has content (5 K&V + 13 Farmhand = 18)
 printf "%-35s" "Skills (18 expected)"
 SKILLS_COUNT=$(ls ~/.claude/skills/ 2>/dev/null | wc -l)
-if [[ "$SKILLS_COUNT" -ge 15 ]]; then
+if [[ "$SKILLS_COUNT" -ge 18 ]]; then
     echo "[OK] ($SKILLS_COUNT installed)"
     PASS=$((PASS + 1))
 else
@@ -172,10 +181,10 @@ else
     FAIL=$((FAIL + 1))
 fi
 
-# Check commands
-printf "%-35s" "Commands (7 expected)"
+# Check commands (10 K&V + 3 Farmhand = 13)
+printf "%-35s" "Commands (13 expected)"
 CMDS_COUNT=$(ls ~/.claude/commands/ 2>/dev/null | wc -l)
-if [[ "$CMDS_COUNT" -ge 5 ]]; then
+if [[ "$CMDS_COUNT" -ge 13 ]]; then
     echo "[OK] ($CMDS_COUNT installed)"
     PASS=$((PASS + 1))
 else
@@ -290,6 +299,25 @@ if [[ -f ~/.claude/agent-state.json ]]; then
 else
     echo "[NONE] (will create on first run)"
     PASS=$((PASS + 1))
+fi
+
+echo ""
+echo "==> System Compatibility..."
+# Check GLIBC version for CASS compatibility (requires 2.39+, Ubuntu 24.04+)
+printf "%-35s" "GLIBC version (CASS needs 2.39+)"
+# Note: tr -d '\n' strips trailing newline that breaks bash arithmetic
+GLIBC_VERSION=$(ldd --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+$' | tr -d '\n' || echo "0.0")
+GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1 | tr -d '\n')
+GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2 | tr -d '\n')
+# Compare: 2.39+ means major=2 and minor>=39, or major>2
+if [[ "$GLIBC_MAJOR" -gt 2 ]] || { [[ "$GLIBC_MAJOR" -eq 2 ]] && [[ "$GLIBC_MINOR" -ge 39 ]]; }; then
+    echo "[OK] ($GLIBC_VERSION)"
+    PASS=$((PASS + 1))
+else
+    echo "[WARN] ($GLIBC_VERSION < 2.39)"
+    echo "       CASS requires Ubuntu 24.04+ (GLIBC 2.39+)"
+    echo "       Session search will not work on this system"
+    WARN=$((WARN + 1))
 fi
 
 echo ""

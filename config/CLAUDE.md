@@ -11,19 +11,18 @@ bd ready        # What can I work on?
 bd stats        # Project health check
 ```
 
-### ENFORCED RULES - Hooks Will Block Violations
+### ENFORCED RULES
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  TodoWrite is BLOCKED         -> Hook redirects to bd commands              │
-│  Edit/Write without reserve   -> Hook blocks until file_reservation_paths() │
-│  Work before registration     -> Hook blocks until register_agent()         │
+│  Commit without reservation   -> Pre-commit guard blocks                    │
 │  bv without --robot-*         -> TUI will hang the agent                    │
 │  Work without bd issue ID     -> Untracked work is lost work                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**These are not suggestions - they are enforced by hooks in `~/.claude/settings.json`**
+**MCP Agent Mail is the single source of truth for agent identity and file reservations.**
 
 ---
 
@@ -33,30 +32,40 @@ bd stats        # Project health check
 
 | Rule | Enforcement | Location |
 |------|-------------|----------|
-| No TodoWrite | PreToolUse hook blocks & suggests bd | `todowrite-interceptor.py` |
-| Must register before editing | PreToolUse hook checks state | `reservation-checker.py` |
-| Must reserve files before editing | PreToolUse hook checks reservations | `reservation-checker.py` |
-| No destructive git commands | PreToolUse hook blocks dangerous git ops | `git_safety_guard.py` |
-| State tracking | PostToolUse hook tracks MCP calls | `mcp-state-tracker.py` |
-| Session cleanup | SessionStart hook clears stale state | `session-init.py` |
+| No TodoWrite | PreToolUse hook | `todowrite-interceptor.py` |
+| No destructive git commands | PreToolUse hook | `git_safety_guard.py` |
+| File reservations at commit | Pre-commit guard | `~/.config/git/hooks/pre-commit` |
+| Session guidance | SessionStart hook | `session-init.py` |
 
 ### Hook Files
 
 ```
 ~/.claude/
 ├── settings.json              # Hook configuration
-├── hooks/
-│   ├── todowrite-interceptor.py    # Blocks TodoWrite, suggests bd
-│   ├── reservation-checker.py      # Enforces file reservations
-│   ├── mcp-state-tracker.py        # Tracks agent state
-│   ├── session-init.py             # Session startup cleanup
-│   └── git_safety_guard.py         # Blocks destructive git commands
-└── agent-state.json           # Current agent state (auto-managed)
+└── hooks/
+    ├── todowrite-interceptor.py    # Blocks TodoWrite, suggests bd
+    ├── git_safety_guard.py         # Blocks destructive git commands
+    └── session-init.py             # Session startup guidance
+
+~/.config/git/hooks/
+├── pre-commit                 # Chain runner for git hooks
+└── hooks.d/pre-commit/
+    └── 50-agent-mail.py       # MCP file reservation guard
 ```
+
+### Shared Library
+
+```
+~/Farmhand/lib/
+├── __init__.py
+└── mcp_client.py              # MCP Agent Mail HTTP client
+```
+
+Use `mcp-query` for diagnostics: `mcp-query agents`, `mcp-query reservations`
 
 ---
 
-## The Workflow (Enforced Sequence)
+## The Workflow
 
 ### Phase 1: Find Work
 
@@ -64,61 +73,46 @@ bd stats        # Project health check
 # Check what's available
 bd ready
 
-# Claim an issue
+# Claim with atomic reserve (PREFERRED)
+bd-claim <id> --paths "src/**/*.py"
+
+# OR manual claim (2 steps)
 bd update <id> --status=in_progress
 ```
 
-### Phase 2: Agent Identity (REQUIRED before editing)
+### Phase 2: Agent Identity
 
-**Option A: AGENT_NAME Environment Variable (Preferred for multi-agent)**
-
-When using `ntm spawn`, each agent pane automatically gets `AGENT_NAME` set to its pane name (e.g., `myproject__cc_1`). This is the intended design from MCP Agent Mail and avoids conflicts when multiple agents share `~/.claude/agent-state.json`.
-
-```bash
-# Set manually if not using ntm:
-export AGENT_NAME="MyAgentName"
-claude
-```
-
-**Option B: register_agent() MCP Call (Single agent)**
+When using `ntm spawn`, each pane gets `AGENT_NAME` set automatically. Registration happens via MCP:
 
 ```python
-# This MUST happen before any Edit/Write operations
-response = register_agent(
-    project_key="/home/ubuntu",
+# Register with MCP Agent Mail
+register_agent(
+    project_key="/home/ubuntu/Farmhand",
     program="claude-code",
     model="opus-4.5"
 )
 # Response: {"name": "BlueLake", ...}
-# SAVE THIS NAME - you need it for all subsequent calls
 ```
 
-**If you skip this step, the reservation-checker hook will block all Edit/Write operations.**
-
-### Phase 3: Reserve Files (REQUIRED before editing)
+### Phase 3: Reserve Files (if not using bd-claim)
 
 ```python
-# Reserve the files you'll edit
+# Reserve files before editing
 file_reservation_paths(
-    project_key="/home/ubuntu",
-    agent_name="<your-assigned-name>",  # e.g., "BlueLake" from register
-    paths=["path/to/files/**/*.py"],    # Glob patterns work
-    ttl_seconds=3600,                   # 1 hour default
+    project_key="/home/ubuntu/Farmhand",
+    agent_name="<your-mcp-name>",  # e.g., "BlueLake"
+    paths=["path/to/files/**/*.py"],
+    ttl_seconds=3600,
     exclusive=True,
-    reason="<issue-id>"                 # e.g., "ubuntu-42" - REQUIRED
+    reason="<bead-id>"
 )
 ```
-
-**If you skip this step, the reservation-checker hook will block all Edit/Write operations.**
 
 ### Phase 4: Work
 
 ```bash
-# Now you can safely edit files
-# The hooks have verified:
-#   1. You're registered
-#   2. You have the files reserved
-#   3. No other agent has conflicting reservations
+# Edit files safely
+# Pre-commit guard verifies reservations at commit time
 ```
 
 ### Phase 5: Cleanup
@@ -472,6 +466,31 @@ bd-cleanup --release-all # Nuclear: release everything
 bd-cleanup --reset-state # Reset local agent state only
 ```
 
+### bd-claim - Atomic Claim + Reserve
+
+```bash
+bd-claim <id>                             # Claim bead only
+bd-claim <id> --paths "src/**/*.py"       # Claim + reserve files
+bd-claim <id> --paths "a.py,b.py" --ttl 7200
+bd-claim <id> --json                      # JSON output
+```
+
+Combines bead claiming and file reservation atomically. If reservation fails, nothing changes.
+
+### mcp-query - MCP Diagnostics
+
+```bash
+mcp-query health                   # Check MCP server
+mcp-query agents                   # List registered agents
+mcp-query reservations             # List active reservations
+mcp-query check <file>             # Check if file is reserved
+mcp-query find-pane <name>         # Find agent by pane name
+mcp-query whois <agent>            # Get agent details
+mcp-query --json <command>         # JSON output
+```
+
+Queries MCP Agent Mail directly for diagnostics.
+
 ---
 
 ## Environment
@@ -535,21 +554,24 @@ Everything links via the beads issue ID:
 Need to track work?           -> bd create --title="..." --type=task
 Need to see what to do?       -> bd ready
 Need graph analysis?          -> bv --robot-priority
-Need to edit files?           -> register_agent() + file_reservation_paths() FIRST
+Need to claim + reserve?      -> bd-claim <id> --paths "..." (atomic, preferred)
+Need to edit files?           -> register_agent() + file_reservation_paths()
 Need to find docs?            -> qmd query "topic"
-Need to message agents?       -> send_message() with thread_id=<issue-id>
+Need to message agents?       -> send_message() with thread_id=<bead-id>
 Session crashed?              -> bd-cleanup
+Check MCP status?             -> mcp-query agents / mcp-query reservations
 ```
 
 ---
 
-## Rules Summary (Enforced)
+## Rules Summary
 
 1. `bd ready` first, always
-2. `bd update --status=in_progress` before starting
-3. `register_agent()` - **ENFORCED: hooks block edits without this**
-4. `file_reservation_paths()` - **ENFORCED: hooks block edits without this**
-5. Use issue ID as `thread_id` everywhere
+2. `bd-claim <id> --paths "..."` for atomic claim + reserve (preferred)
+   - OR: `bd update` → `register_agent()` → `file_reservation_paths()` (manual)
+3. `register_agent()` - required before editing
+4. `file_reservation_paths()` - required before editing
+5. Use bead ID as `thread_id` everywhere
 6. `release_file_reservations()` when done editing
 7. `bd close` when done with issue
 8. TodoWrite is **BLOCKED** - use bd instead
@@ -790,9 +812,11 @@ Quick access to AI agents with dangerous permissions enabled:
 
 | Alias | Command | Mode |
 |-------|---------|------|
-| `cc` | `claude --dangerously-skip-permissions` | Skip all prompts |
-| `cod` | `bunx codex --approval-mode full-auto` | Auto-approve all |
+| `cla` | `claude --dangerously-skip-permissions` | Skip all prompts |
+| `cod` | `bunx codex --full-auto` | Auto-approve all |
 | `gmi` | `bunx gemini --yolo` | YOLO mode |
+
+Note: `cla` is used instead of `cc` to avoid conflict with the C compiler (`/usr/bin/cc`).
 
 Safe alternatives:
 - `claude-safe`, `codex-safe`, `gemini-safe`
@@ -815,8 +839,8 @@ Safe alternatives:
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  START SESSION                                                              │
-│    bd ready → bd update <id> --status=in_progress                          │
-│    register_agent() → file_reservation_paths()                             │
+│    bd ready → bd-claim <id> --paths "..."  (atomic claim + reserve)        │
+│    OR: bd update <id> → register_agent() → file_reservation_paths()        │
 │                                                                             │
 │  WORK                                                                       │
 │    Edit files → ubs <files> → commit                                       │
@@ -828,6 +852,9 @@ Safe alternatives:
 │  MULTI-AGENT                                                                │
 │    ntm spawn proj --cc=2 --cod=1                                           │
 │    send_message() / fetch_inbox() for coordination                         │
-│    File reservations prevent conflicts                                      │
+│    Pre-commit guard enforces reservations at commit time                   │
+│                                                                             │
+│  DIAGNOSTICS                                                                │
+│    mcp-query agents / reservations / health                                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

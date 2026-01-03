@@ -9,11 +9,6 @@ Verifies that running installation scripts twice is safe and doesn't:
 """
 
 import json
-import os
-import subprocess
-import sys
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -37,7 +32,7 @@ export PATH="$HOME/.bun/bin:$PATH"
         lines = content.strip().split("\n")
 
         # Extract PATH additions
-        path_additions = [l for l in lines if "export PATH=" in l]
+        path_additions = [line for line in lines if "export PATH=" in line]
 
         # Count occurrences of each path addition
         from collections import Counter
@@ -216,7 +211,6 @@ sys.exit(0)
 
         # First install
         hook_file.write_text(hook_content)
-        mtime1 = hook_file.stat().st_mtime
 
         # Second install (same content)
         hook_file.write_text(hook_content)

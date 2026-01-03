@@ -5,8 +5,12 @@
 # Runs UBS (Ultimate Bug Scanner) on staged files before commit.
 # Blocks commit if UBS finds issues (exit code > 0).
 #
-# Installation: Installed by JohnDeere installer to .git/hooks/pre-commit
+# Installation: Installed by Farmhand installer to ~/.config/git/hooks/pre-commit
 # Skip: SKIP_UBS=1 git commit -m "..." (for emergencies only)
+#
+# IMPORTANT: UBS only accepts directory paths, NOT individual file paths.
+# Use `ubs --staged` which creates a shadow workspace with staged files.
+# Do NOT use: ubs file1.py file2.py (this will fail with usage error)
 #
 
 set -e
@@ -24,7 +28,7 @@ if ! command -v ubs &>/dev/null; then
     exit 0
 fi
 
-# Get staged files (only actual code files)
+# Check if there are any staged code files
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(py|js|ts|jsx|tsx|go|rs|java|rb|php|c|cpp|h|hpp)$' || true)
 
 if [[ -z "$STAGED" ]]; then
@@ -33,14 +37,11 @@ if [[ -z "$STAGED" ]]; then
 fi
 
 echo "Running UBS security scan on staged files..."
-echo "$STAGED" | tr '\n' ' '
-echo ""
 
-# Run UBS on staged files
-# Note: We create a temp file list because xargs might fail with special chars
-STAGED_LIST=$(echo "$STAGED" | tr '\n' ' ')
-
-if ! ubs $STAGED_LIST; then
+# Run UBS with --staged flag (scans only files in git staging area)
+# This creates a shadow workspace with the staged file versions and scans them
+# IMPORTANT: Do NOT pass individual file paths - UBS only accepts directories
+if ! ubs --staged --fail-on-warning; then
     echo ""
     echo "============================================"
     echo "COMMIT BLOCKED: UBS found issues"

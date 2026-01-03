@@ -11,10 +11,10 @@
 
 ### 🚜 Transform your Ubuntu VM into an AI Coding Powerhouse 🌾
 
-[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/eaasxt/Farmhand)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](https://github.com/eaasxt/Farmhand)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange.svg)](https://ubuntu.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
-[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-129%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-30%2B-purple.svg)](#-what-gets-installed)
 
 *One command. 30+ tools. Multiple AI agents working in harmony.*
@@ -112,6 +112,25 @@ Result: No conflicts, clear ownership, happy developers
 ```
 
 **Agents can't cheat.** The hooks intercept every file operation and enforce the workflow automatically.
+
+---
+
+## 🧘 The Philosophy: Truth Lives Outside the Model
+
+Farmhand is built on the **Knowledge & Vibes** framework. The core insight is simple: **The AI's confident output is not truth.**
+
+Truth is:
+1.  Tests that pass
+2.  Code that compiles
+3.  Documentation that exists
+4.  Security scans that clear
+
+Everything else is a hypothesis. Farmhand provides the **protocol** to turn those hypotheses into verified software:
+
+*   **Plan Explicitly**: A "North Star Card" captures what success looks like before code is written.
+*   **Track Everything**: Work is broken into "beads" (tasks) with explicit dependencies.
+*   **Coordinate**: File reservations prevent "too many cooks in the kitchen."
+*   **Verify**: Mandatory security scans (`ubs`) and tests act as the source of truth.
 
 
 
@@ -263,36 +282,46 @@ ntm spawn myproject --cc=2  # Spawn 2 Claude agents
 
 ## 🛠 What Gets Installed
 
-### Core Stack (Essential)
+Farmhand isn't just a script; it's a cohesive **Capability Stack**.
 
-| Tool | Purpose | Docs |
-|------|---------|------|
-| **[bd](https://github.com/steveyegge/beads)** | Distributed, git-backed graph issue tracker | [README](https://github.com/steveyegge/beads#readme) |
-| **[bv](https://github.com/Dicklesworthstone/beads_viewer)** | Terminal UI for beads with graph visualization | [README](https://github.com/Dicklesworthstone/beads_viewer#readme) |
-| **[qmd](https://github.com/tobi/qmd)** | Markdown semantic search with local LLM | [README](https://github.com/tobi/qmd#readme) |
-| **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | Agent messaging & file reservations | [README](https://github.com/Dicklesworthstone/mcp_agent_mail#readme) |
+### 🧠 The Coordination Engine
+*Prevent chaos and keep agents aligned.*
 
-### AI Coding Agents
+| Tool | Purpose |
+|------|---------|
+| **[MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)** | The nervous system. Handles file reservations, agent messaging, and handoffs. |
+| **[bd (Beads)](https://github.com/steveyegge/beads)** | The memory. Distributed, git-backed graph issue tracker. |
+| **[ntm](https://github.com/Dicklesworthstone/ntm)** | The orchestrator. Named Tmux Manager for spinning up agent teams. |
+
+### 🛡️ The Enforcement Layer
+*Safety rails that agents cannot bypass.*
+
+| Tool | Purpose |
+|------|---------|
+| **Hooks** | Python scripts that intercept `Edit`, `Write`, `Bash` to enforce reservations. |
+| **[ubs](https://github.com/Dicklesworthstone/ultimate_bug_scanner)** | The gatekeeper. AI-powered security and bug scanner (run before commit). |
+| **farmhand-doctor** | The medic. System diagnostic tool to verify health. |
+
+### 📚 The Knowledge Base
+*Tools to understand and navigate the codebase.*
+
+| Tool | Purpose |
+|------|---------|
+| **[qmd](https://github.com/tobi/qmd)** | Semantic search for your docs and code. |
+| **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search history of *what agents did* in previous sessions. |
+| **[cm](https://github.com/Dicklesworthstone/cass_memory_system)** | Procedural memory for agents to store facts. |
+
+### 🤖 The Workforce
+*Pre-configured AI agent aliases.*
 
 | Agent | Alias | Mode | Auth |
 |-------|-------|------|------|
-| Claude Code | `cc` | `--dangerously-skip-permissions` | OAuth |
-| Codex CLI | `cod` | `--approval-mode full-auto` | Device code |
-| Gemini CLI | `gmi` | `--yolo` | OAuth |
+| **Claude Code** | `cla` | `--dangerously-skip-permissions` | OAuth |
+| **Codex CLI** | `cod` | `--full-auto` | Device code |
+| **Gemini CLI** | `gmi` | `--yolo` | OAuth |
 
 <details>
 <summary><strong>📦 Full Tool List (click to expand)</strong></summary>
-
-#### Dicklesworthstone Stack (6 Tools)
-
-| Tool | Purpose | Docs |
-|------|---------|------|
-| **[ubs](https://github.com/Dicklesworthstone/ultimate_bug_scanner)** | AI-powered bug scanner, pre-commit security | [README](https://github.com/Dicklesworthstone/ultimate_bug_scanner#readme) |
-| **[ntm](https://github.com/Dicklesworthstone/ntm)** | Named Tmux Manager for multi-agent orchestration | [README](https://github.com/Dicklesworthstone/ntm#readme) |
-| **[cm](https://github.com/Dicklesworthstone/cass_memory_system)** | Procedural memory system for agents | [README](https://github.com/Dicklesworthstone/cass_memory_system#readme) |
-| **[caam](https://github.com/Dicklesworthstone/coding_agent_account_manager)** | Backup/restore agent authentication | [README](https://github.com/Dicklesworthstone/coding_agent_account_manager#readme) |
-| **[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)** | Search past agent session transcripts | [README](https://github.com/Dicklesworthstone/coding_agent_session_search#readme) |
-| **[slb](https://github.com/Dicklesworthstone/simultaneous_launch_button)** | Two-person rule for dangerous commands | [README](https://github.com/Dicklesworthstone/simultaneous_launch_button#readme) |
 
 #### Context Engineering Utilities
 
@@ -654,8 +683,9 @@ cropwatch-c2d [P1] [task] open - Irrigation controller API
 #### Step 3: Start Claude in Dangerous Mode
 
 ```bash
-# Launch Claude with auto-approve (alias: cc)
-cc
+# Launch Claude with auto-approve (alias: cla)
+# Note: 'cla' instead of 'cc' to avoid conflict with C compiler
+cla
 
 # Or the full command:
 claude --dangerously-skip-permissions
@@ -1069,7 +1099,7 @@ ntm spawn cropwatch --cc=3
 ├─────────────────────┼─────────────────────┼─────────────────────────────┤
 │     SHORTCUTS       │    NAVIGATION       │         RECOVERY            │
 ├─────────────────────┼─────────────────────┼─────────────────────────────┤
-│ cc = claude danger  │ z <dir> = jump      │ bd-cleanup --force          │
+│ cla = claude danger │ z <dir> = jump      │ bd-cleanup --force          │
 │ lg = lazygit        │ Ctrl+R = history    │ bd-cleanup --release-all    │
 │ F6 = ntm palette    │ Ctrl+T = find file  │ bd-cleanup --reset-state    │
 └─────────────────────┴─────────────────────┴─────────────────────────────┘
@@ -1077,6 +1107,14 @@ ntm spawn cropwatch --cc=3
 
 
 ## 🔧 Troubleshooting
+
+### System Diagnostic
+
+Run the included doctor tool to diagnose common issues with registration, services, and hooks:
+
+```bash
+farmhand-doctor
+```
 
 ### Common Issues
 
@@ -1193,6 +1231,7 @@ python3 -m pytest tests/ -v
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **v2.2.3** | Dec 2025 | Dispatcher archival, bd-claim fixes, version sync, 129 tests |
 | **v2.2.2** | Dec 2025 | Context engineering: artifact trail, obs-mask, structured Agent Mail schemas, degradation probes |
 | **v2.2.0** | Dec 2025 | bd v0.36 molecular bonding, UBS v5.0 + ast-grep, CASS v0.1.36, NTM v1.2 |
 | **v2.1.0** | Dec 2025 | Knowledge & Vibes workflow, 92 tests, hook enforcement, escape hatch |
@@ -1202,12 +1241,19 @@ python3 -m pytest tests/ -v
 <details>
 <summary>Detailed changelog</summary>
 
+### v2.2.3 (December 2025)
+- **Dispatcher Archival**: Removed experimental dispatcher concept (adds complexity without benefit)
+- **bd-claim Fixes**: Fixed STATE_DIR evaluated at import time, added MCPError handling
+- **Version Sync**: Aligned VERSION, install.sh, README badges
+- 129 tests (up from 120)
+
 ### v2.2.2 (December 2025)
 - **Context Engineering Features** from research analysis:
   - **Artifact Trail Tracking**: mcp-state-tracker.py now tracks files_created, files_modified, files_read
   - **obs-mask**: New utility to mask large tool outputs (>2000 tokens) to session artifacts
   - **Agent Mail Schemas**: Structured JSON schemas for CLAIMED, CLOSED, BLOCKED, HANDOFF messages
   - **Degradation Probes**: New probes agent in /calibrate skill for detecting context degradation
+- **System Diagnostics**: Enhanced `farmhand-doctor` with real API health checks for MCP and Ollama
 - 120 tests (up from 92) with new coverage for artifact tracking and observation masking
 - Improved multi-agent handoff quality through structured messaging
 
@@ -1235,7 +1281,7 @@ python3 -m pytest tests/ -v
 - Multi-agent coordination with MCP Agent Mail
 - Enforcement hooks layer (PreToolUse, PostToolUse, SessionStart)
 - Cloud CLIs (Vault, Wrangler, Supabase, Vercel)
-- AI agent aliases (cc, cod, gmi)
+- AI agent aliases (cla, cod, gmi)
 - Modern shell environment
 
 ### v1.x (October 2025)

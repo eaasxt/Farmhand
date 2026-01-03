@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """
-File Reservation Checker Hook (v7 - Fixed glob pattern matching)
+File Reservation Checker Hook (v8 - Improved error messages)
 ----------------------------------------------------------------------
 Queries the MCP Agent Mail SQLite database directly for file reservations.
+
+v8 Changes (Farmhand-d2t):
+- Error messages now show reservation expiry time
+- Copy-paste commands use actual issue_id from state file when available
+- Links to troubleshooting docs for each error type
+- Shows reservation reason and pattern for context
 
 State file logic (matches mcp-state-tracker.py and session-init.py):
 - When AGENT_NAME is set: uses state-{AGENT_NAME}.json (multi-agent)
@@ -30,6 +36,11 @@ from pathlib import Path
 
 class DatabaseUnavailableError(Exception):
     """Raised when database cannot be accessed after retries."""
+    pass
+
+
+class MultiAgentConflictError(Exception):
+    """Raised when multiple agents detected without AGENT_NAME isolation."""
     pass
 
 
@@ -65,7 +76,7 @@ def get_state_from_file():
     state_file = get_state_file()
     if state_file.exists():
         try:
-            with open(state_file) as f:
+            with open(state_file, encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -73,33 +84,42 @@ def get_state_from_file():
 
 def get_agent_name():
     """
-    Get agent name with proper priority:
-    1. Registered name from agent-state.json (set by MCP registration)
-    2. Valid AGENT_NAME env var (for multi-agent scenarios)
+    Get agent name for reservation checking.
+
+    CRITICAL: Must return the MCP-assigned name from state file, NOT the
+    AGENT_NAME env var. Reservations are stored under MCP-assigned names
+    (e.g., "ChartreuseLake"), not pane names (e.g., "Farmhand__cc_3").
+
+    The AGENT_NAME env var is only used for state file path selection
+    (state-{AGENT_NAME}.json), not for identity comparison with reservations.
+
+    If state file doesn't have a registered MCP name, returns None to indicate
+    the agent must register before editing.
     """
-    # Priority 1: Check agent-state.json for registered name
     state = get_state_from_file()
     if state.get("registered") and state.get("agent_name"):
         return state["agent_name"]
 
-    # Priority 2: Valid AGENT_NAME env var (multi-agent scenario)
-    if AGENT_NAME_ENV and is_valid_agent_name(AGENT_NAME_ENV):
-        return AGENT_NAME_ENV
-
+    # NOT registered with MCP - cannot verify reservation ownership
+    # Do NOT fall back to AGENT_NAME env var - that causes identity mismatch
+    # where pane name "Farmhand__cc_3" != MCP name "ChartreuseLake"
     return None
 
 def is_registered():
-    """Check if agent is registered."""
-    # Check agent-state.json first
+    """
+    Check if agent is registered with MCP Agent Mail.
+
+    CRITICAL: Registration means the agent has called register_agent() and
+    received an MCP-assigned name stored in the state file. Simply having
+    AGENT_NAME env var set is NOT sufficient - that's just the pane name.
+
+    The state file must contain:
+    - "registered": true
+    - "agent_name": "<MCP-assigned name like ChartreuseLake>"
+    """
     state = get_state_from_file()
-    if state.get("registered"):
-        return True
-
-    # Check if valid AGENT_NAME is set (multi-agent scenario)
-    if AGENT_NAME_ENV and is_valid_agent_name(AGENT_NAME_ENV):
-        return True
-
-    return False
+    # Must be explicitly registered with a valid agent_name from MCP
+    return bool(state.get("registered") and state.get("agent_name"))
 
 def get_active_reservations():
     """
@@ -126,7 +146,9 @@ def get_active_reservations():
             cursor = conn.cursor()
 
             # Get active (non-released, non-expired) reservations
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            # Use space-separated format to match SQLite storage format
+            # (MCP Agent Mail stores as "2025-12-28 04:07:44.521212", not ISO "2025-12-28T04:07:44")
+            now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')
             cursor.execute("""
                 SELECT
                     fr.path_pattern,
@@ -239,23 +261,95 @@ def file_matches_pattern(file_path: str, pattern: str) -> bool:
 
     return False
 
+def get_active_agent_count(minutes: int = 30) -> int:
+    """
+    Count recently active agents in the MCP database.
+
+    Used to detect multi-agent scenarios where AGENT_NAME should be required.
+    Returns 0 if database unavailable (fail open for this check).
+    """
+    if not MCP_DB_PATH.exists():
+        return 0
+
+    try:
+        conn = sqlite3.connect(str(MCP_DB_PATH), timeout=5.0)
+        conn.execute('PRAGMA busy_timeout=5000')
+        cursor = conn.cursor()
+
+        # Count agents active in the last N minutes
+        cursor.execute("""
+            SELECT COUNT(DISTINCT id) FROM agents
+            WHERE datetime(last_active_ts) > datetime('now', '-' || ? || ' minutes')
+        """, (minutes,))
+
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
+    except sqlite3.Error:
+        return 0  # Fail open - don't block if we can't check
+
+
 def check_file_reserved(file_path: str, agent_name: str, reservations: list) -> tuple:
     """
     Check if file is reserved by the given agent.
-    Returns (is_reserved_by_agent, blocking_agent_or_none)
+    Returns (is_reserved_by_agent, blocking_agent_or_none, reservation_info_or_none)
+
+    reservation_info contains: expires_ts, reason, pattern (for contextual messages)
     """
     file_path = os.path.abspath(file_path)
-    
+
     for res in reservations:
         res_agent = res.get("agent_name", "")
         for pattern in res.get("paths", []):
             if file_matches_pattern(file_path, pattern):
-                if res_agent.lower() == agent_name.lower():
-                    return (True, None)  # Reserved by this agent
+                res_info = {
+                    "expires_ts": res.get("expires_ts", ""),
+                    "reason": res.get("reason", ""),
+                    "pattern": pattern
+                }
+                if res_agent == agent_name:
+                    return (True, None, res_info)  # Reserved by this agent
                 else:
-                    return (False, res_agent)  # Reserved by another agent
-    
-    return (False, None)  # Not reserved by anyone
+                    return (False, res_agent, res_info)  # Reserved by another agent
+
+    return (False, None, None)  # Not reserved by anyone
+
+
+def format_expiry_time(expires_ts: str) -> str:
+    """Format expiry timestamp for human-readable display."""
+    if not expires_ts:
+        return "unknown"
+    try:
+        # Parse the timestamp (format: 2025-12-27 18:42:54.627842)
+        if 'T' in expires_ts:
+            exp_dt = datetime.fromisoformat(expires_ts.replace('Z', '+00:00'))
+        else:
+            exp_dt = datetime.fromisoformat(expires_ts)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        remaining = exp_dt - now
+
+        if remaining.total_seconds() <= 0:
+            return "EXPIRED"
+
+        minutes = int(remaining.total_seconds() / 60)
+        if minutes < 60:
+            return f"{minutes} minutes"
+        hours = minutes // 60
+        mins = minutes % 60
+        if mins > 0:
+            return f"{hours}h {mins}m"
+        return f"{hours} hours"
+    except (ValueError, AttributeError):
+        return expires_ts  # Return raw value if parsing fails
+
+
+def get_issue_id_from_state() -> str:
+    """Get the current issue ID from agent state file."""
+    state = get_state_from_file()
+    return state.get("issue_id", "")
 
 def main():
     # Escape hatch for experienced users - bypass all enforcement
@@ -265,7 +359,8 @@ def main():
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
-        sys.exit(1)
+        # Fail open on parse errors (don't block user workflow)
+        sys.exit(0)
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
@@ -278,19 +373,64 @@ def main():
         sys.exit(0)
 
     # Skip certain paths (including mcp_agent_mail so agents can manage their own reservations)
-    skip_patterns = ["/.claude/", "/.local/bin/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/.mcp_agent_mail/"]
+    skip_patterns = ["/.claude/", "/.local/bin/", "/tmp/", ".pyc", "__pycache__", ".git/", "node_modules/", "/mcp_agent_mail/", "/.beads/"]
     for pattern in skip_patterns:
         if pattern in file_path:
+            sys.exit(0)
+
+    # MULTI-AGENT ENFORCEMENT: Require AGENT_NAME when multiple agents detected
+    # This prevents state file conflicts where agents overwrite each other's identity
+    if not AGENT_NAME_ENV:
+        active_agents = get_active_agent_count(minutes=30)
+        if active_agents > 1:
+            output = {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": f"""BLOCKED: Multi-agent conflict detected.
+
+{active_agents} agents have been active in the last 30 minutes, but AGENT_NAME is not set.
+Without AGENT_NAME, agents share ~/.claude/agent-state.json and overwrite each other's identity.
+
+TO FIX - Set AGENT_NAME before launching Claude:
+```bash
+export AGENT_NAME="MyAgent1"
+claude
+```
+
+OR use NTM which sets this automatically:
+```bash
+ntm spawn myproject --cc=2
+```
+
+Why this matters:
+- Agent A registers as "BlueLake", writes to state file
+- Agent B registers as "RedStone", overwrites state file
+- Agent A tries to edit -> hook thinks it's "RedStone" -> BLOCKED
+
+See: docs/adr/0003-multi-agent-state-isolation.md"""
+                }
+            }
+            print(json.dumps(output))
             sys.exit(0)
 
     # Check registration
     if not is_registered():
         home_dir = str(Path.home())
+        pane_name = AGENT_NAME_ENV or "unknown"
+        state_file = get_state_file()
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": f"""BLOCKED: Agent not registered.
+                "permissionDecisionReason": f"""BLOCKED: Agent not registered with MCP Agent Mail.
+
+Your pane: {pane_name}
+State file: {state_file}
+
+You must register with MCP Agent Mail before editing files.
+Registration assigns you a memorable name (e.g., "ChartreuseLake")
+that is used for file reservations.
 
 To fix, call register_agent() first:
 
@@ -302,16 +442,26 @@ register_agent(
 )
 ```
 
-Or set AGENT_NAME before launching:
-```bash
-export AGENT_NAME="YourAgentName"
-claude
+Or use macro_start_session() which combines registration + file reservation.
+
+After registration, reserve files before editing:
+```python
+file_reservation_paths(
+    project_key="{home_dir}",
+    agent_name="<your-assigned-name>",
+    paths=["path/to/files/**"],
+    ttl_seconds=3600,
+    exclusive=True,
+    reason="<bead-id>"
+)
 ```
 
 Quick recovery (if registered but state lost):
 ```bash
 bd-cleanup --reset-state
-```"""
+```
+
+See: docs/troubleshooting-flowchart.md Section A (Registration)"""
             }
         }
         print(json.dumps(output))
@@ -343,10 +493,18 @@ Options:
         print(json.dumps(output))
         sys.exit(0)
 
-    is_reserved, blocking_agent = check_file_reserved(file_path, agent_name, reservations)
+    is_reserved, blocking_agent, res_info = check_file_reserved(file_path, agent_name, reservations)
 
     if blocking_agent:
         home_dir = str(Path.home())
+        # Extract contextual info from reservation
+        expiry_str = format_expiry_time(res_info.get("expires_ts", "")) if res_info else "unknown"
+        res_reason = res_info.get("reason", "") if res_info else ""
+        res_pattern = res_info.get("pattern", "") if res_info else ""
+
+        reason_line = f"\nReason: {res_reason}" if res_reason else ""
+        pattern_line = f"\nPattern: {res_pattern}" if res_pattern and res_pattern != file_path else ""
+
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -355,6 +513,7 @@ Options:
 
 File: {file_path}
 Reserved by: {blocking_agent}
+Expires in: {expiry_str}{reason_line}{pattern_line}
 Your agent: {agent_name}
 
 Options:
@@ -370,12 +529,19 @@ send_message(
 )
 ```
 
-2. Check if reservation is stale:
+2. Check if reservation is stale (expired or holder inactive):
 ```bash
 bd-cleanup --list
 ```
 
-3. Work on a different file while waiting"""
+3. Force release if expired/stale:
+```bash
+bd-cleanup --force
+```
+
+4. Work on a different file while waiting
+
+See: docs/troubleshooting-flowchart.md Section D (Reservation Conflicts)"""
             }
         }
         print(json.dumps(output))
@@ -386,6 +552,12 @@ bd-cleanup --list
         # Suggest a glob pattern for the directory
         file_dir = os.path.dirname(file_path)
         suggested_pattern = f"{file_dir}/**"
+
+        # Get issue ID from state file for copy-paste ready command
+        issue_id = get_issue_id_from_state()
+        reason_value = issue_id if issue_id else "your-issue-id"
+        reason_tip = "" if issue_id else "\n\nTip: Use `bd ready` to find an issue, then `bd update <id> --status=in_progress` to claim it."
+
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -403,7 +575,7 @@ file_reservation_paths(
     paths=["{suggested_pattern}"],
     ttl_seconds=3600,
     exclusive=True,
-    reason="<issue-id>"
+    reason="{reason_value}"
 )
 ```
 
@@ -415,11 +587,11 @@ file_reservation_paths(
     paths=["{file_path}"],
     ttl_seconds=3600,
     exclusive=True,
-    reason="<issue-id>"
+    reason="{reason_value}"
 )
-```
+```{reason_tip}
 
-Tip: Replace <issue-id> with your bd issue ID (e.g., "ubuntu-42")"""
+See: docs/troubleshooting-flowchart.md Section C (File Reservation)"""
             }
         }
         print(json.dumps(output))

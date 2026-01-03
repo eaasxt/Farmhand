@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -34,7 +37,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session",
+        "matcher": "mcp__mcp-agent-mail__.*|register_agent|file_reservation_paths|release_file_reservations|macro_start_session|Write|Edit|Read",
         "hooks": [
           {
             "type": "command",
@@ -52,6 +55,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOME__/.claude/hooks/inbox-reminder.py",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -61,7 +74,7 @@
           {
             "type": "command",
             "command": "__HOME__/.claude/hooks/session-init.py",
-            "timeout": 10
+          "timeout": 10
           }
         ]
       }

@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-MCP State Tracker Hook (PostToolUse) - v4
+MCP State Tracker Hook (PostToolUse) - v5
 ------------------------------------
 Tracks agent state after MCP tool calls:
 - Updates registration status after register_agent
 - Tracks file reservations after file_reservation_paths
 - Clears reservations after release_file_reservations
 - Tracks artifact trail (files created/modified/read)
+
+v5 Changes (Farmhand-ktf):
+- Added signal-based timeout wrapper (4.5s, under 5s external timeout)
+- Timeout triggers fail-open behavior (allows operation to proceed)
+- State tracking is non-critical - should never block user workflow
 
 ARTIFACT TRAIL: Research shows file tracking is the weakest dimension in
 agent sessions (2.2-2.5/5.0 scores). This hook tracks files touched to
@@ -24,16 +29,33 @@ import sys
 import os
 import time
 import fcntl
+import signal
 from pathlib import Path
 from contextlib import contextmanager
 
 # Escape hatch for experienced users - bypass all state tracking
 if os.environ.get("FARMHAND_SKIP_ENFORCEMENT") == "1":
+    # Consume stdin to prevent blocking the caller, then exit
+    sys.stdin.read()
     sys.exit(0)
+
+# Timeout configuration
+HOOK_TIMEOUT = 4.5  # seconds (under 5s external timeout in settings.json)
 
 # Per-agent state files to avoid conflicts
 AGENT_NAME = os.environ.get("AGENT_NAME")
 STATE_DIR = Path.home() / ".claude"
+
+
+class TimeoutError(Exception):
+    """Raised when hook execution exceeds timeout."""
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler for SIGALRM."""
+    raise TimeoutError("Hook execution timed out")
+
 
 def get_state_file():
     """Get the state file path for this agent."""
@@ -94,7 +116,7 @@ def state_lock(timeout: float = LOCK_TIMEOUT):
             pass  # Another process may have cleaned it up
 
     # Open lock file (create if needed)
-    lock_fd = open(lock_file, 'w')
+    lock_fd = open(lock_file, 'w', encoding='utf-8')
     start_time = time.time()
     acquired = False
 
@@ -131,7 +153,7 @@ def load_state():
     state_file = get_state_file()
     if state_file.exists():
         try:
-            with open(state_file) as f:
+            with open(state_file, encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -155,14 +177,16 @@ def save_state(state):
     # Atomic write: write to temp file, then rename
     temp_file = state_file.with_suffix('.tmp')
     try:
-        with open(temp_file, "w") as f:
+        with open(temp_file, "w", encoding='utf-8') as f:
             json.dump(state, f, indent=2)
         temp_file.rename(state_file)  # Atomic rename on POSIX
     except IOError:
         if temp_file.exists():
             temp_file.unlink()
 
-def main():
+
+def main_logic():
+    """Core hook logic."""
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -170,7 +194,19 @@ def main():
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
-    tool_output = input_data.get("tool_output", {})
+
+    # tool_response is a JSON string for MCP tools, parse it
+    # (Claude Code passes MCP responses as JSON strings in tool_response, not tool_output)
+    tool_response_raw = input_data.get("tool_response", "")
+    if isinstance(tool_response_raw, str) and tool_response_raw:
+        try:
+            tool_output = json.loads(tool_response_raw)
+        except json.JSONDecodeError:
+            tool_output = {}
+    elif isinstance(tool_response_raw, dict):
+        tool_output = tool_response_raw
+    else:
+        tool_output = {}
 
     # MCP Agent Mail tools
     mcp_tools = {
@@ -209,7 +245,8 @@ def main():
                 agent_name = tool_output.get("name") or tool_output.get("agent_name")
                 if agent_name:
                     state["registered"] = True
-                    state["agent_name"] = agent_name
+                    state["agent_name"] = agent_name  # MCP-assigned name (for reservations)
+                    state["pane_name"] = AGENT_NAME   # Original pane name (for debugging)
                     state["registration_time"] = time.time()
                     save_state(state)
 
@@ -242,18 +279,20 @@ def main():
                 agent_name = tool_output.get("name") or tool_output.get("agent_name")
                 if agent_name:
                     state["registered"] = True
-                    state["agent_name"] = agent_name
+                    state["agent_name"] = agent_name  # MCP-assigned name (for reservations)
+                    state["pane_name"] = AGENT_NAME   # Original pane name (for debugging)
                     state["registration_time"] = time.time()
 
                 # Also track any reservations from macro
-                paths = tool_input.get("paths", [])
-                reason = tool_input.get("reason", "")
+                # Note: macro_start_session uses "file_reservation_paths" parameter, not "paths"
+                paths = tool_input.get("file_reservation_paths") or tool_input.get("paths", [])
+                reason = tool_input.get("file_reservation_reason", "")
                 if paths:
                     reservation = {
                         "paths": paths,
                         "reason": reason,
                         "created_at": time.time(),
-                        "expires_at": time.time() + tool_input.get("ttl_seconds", 3600)
+                        "expires_at": time.time() + tool_input.get("file_reservation_ttl_seconds", 3600)
                     }
                     state["reservations"].append(reservation)
                 save_state(state)
@@ -287,6 +326,28 @@ def main():
                 save_state(state)
 
     sys.exit(0)
+
+
+def main():
+    """Entry point with timeout handling."""
+    # Set up timeout handler (fail open - state tracking is non-critical)
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, HOOK_TIMEOUT)
+
+    try:
+        main_logic()
+    except TimeoutError:
+        # Timeout - fail open (allow operation, skip state tracking)
+        # State tracking is nice-to-have, not critical
+        sys.exit(0)
+    except Exception:
+        # Any other error - fail open
+        sys.exit(0)
+    finally:
+        # Cancel timer and restore handler
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
+
 
 if __name__ == "__main__":
     main()

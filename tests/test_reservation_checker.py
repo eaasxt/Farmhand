@@ -5,10 +5,8 @@ This hook enforces file reservations before allowing Edit/Write operations.
 """
 
 import json
-import os
 import sqlite3
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -119,7 +117,7 @@ class TestReservationChecker:
         assert exit_code == 0
 
     def test_allows_beads_directory_edits(self, hook_path):
-        """Edits to .beads directory should be allowed."""
+        """Edits to .beads directory should be allowed (skip pattern)."""
         input_data = {
             "tool_name": "Edit",
             "tool_input": {"file_path": "/home/ubuntu/.beads/issues.jsonl"}
@@ -128,6 +126,9 @@ class TestReservationChecker:
         exit_code, stdout, stderr = run_hook(hook_path, input_data)
 
         assert exit_code == 0
+        # Verify no denial - .beads/ should be in skip_patterns
+        output = parse_hook_output(stdout)
+        assert output.get("hookSpecificOutput", {}).get("permissionDecision") != "deny"
 
     def test_allows_tmp_edits(self, hook_path):
         """Edits to /tmp should be allowed."""
@@ -250,7 +251,7 @@ class TestReservationChecker:
         assert exit_code == 0
 
     def test_handles_malformed_json(self, hook_path):
-        """Malformed JSON should be handled gracefully."""
+        """Malformed JSON should be handled gracefully (fail open)."""
         import subprocess
         import sys
 
@@ -261,8 +262,8 @@ class TestReservationChecker:
             text=True
         )
 
-        # Should exit with error code (1 for JSON decode error)
-        assert result.returncode == 1
+        # Should exit 0 (fail open - don't block user workflow on parse errors)
+        assert result.returncode == 0
 
 
 class TestReservationPatternMatching:
@@ -277,11 +278,9 @@ class TestReservationPatternMatching:
         # This tests the fnmatch logic directly
         import fnmatch
 
-        pattern = "/home/user/project/**"
         # Note: fnmatch doesn't handle ** like gitignore
-        # The hook likely uses custom logic
-
-        # Test basic match
+        # The hook uses custom logic for ** patterns
+        # Standard fnmatch * only matches single directory level
         assert fnmatch.fnmatch("/home/user/project/file.py", "/home/user/project/*")
 
     def test_exact_path_match(self):

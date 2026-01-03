@@ -108,7 +108,7 @@ if ! command -v qmd &>/dev/null; then
     cat > ~/.local/bin/qmd << EOF
 #!/bin/bash
 # qmd - Quick Markdown Search
-exec "$HOME/.bun/bin/bun" "$HOME/.bun/install/global/node_modules/qmd/qmd.ts" "\$@"
+exec "$HOME/.bun/install/global/node_modules/qmd/qmd" "\$@"
 EOF
     chmod +x ~/.local/bin/qmd
 else

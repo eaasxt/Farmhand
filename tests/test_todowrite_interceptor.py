@@ -4,7 +4,6 @@ Tests for todowrite-interceptor.py hook.
 This hook blocks all TodoWrite tool calls and suggests using beads (bd) instead.
 """
 
-import json
 import pytest
 
 from conftest import run_hook, parse_hook_output

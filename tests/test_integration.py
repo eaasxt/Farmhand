@@ -5,12 +5,8 @@ Tests the complete hook chain and state management.
 """
 
 import json
-import os
 import subprocess
 import sys
-import time
-from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
@@ -145,11 +141,12 @@ class TestFullWorkflow:
 
     def test_state_tracking_after_registration(self, hooks_dir, workflow_env):
         """State should be tracked after MCP registration call."""
+        import json as json_module
         hook_path = hooks_dir / "mcp-state-tracker.py"
         input_data = {
             "tool_name": "register_agent",
             "tool_input": {"project_key": "/home/test"},
-            "tool_output": {"name": "BlueLake"}
+            "tool_response": json_module.dumps({"name": "BlueLake"})
         }
         
         exit_code, stdout, stderr = run_hook(

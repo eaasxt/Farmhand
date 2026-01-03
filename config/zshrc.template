@@ -1,6 +1,9 @@
 # Suppress instant prompt warnings (some tools produce output during init)
 typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
 
+# Terminal compatibility (for SSH from kitty, etc.)
+export TERM=xterm-256color
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -127,6 +130,11 @@ export BEADS_DB="$HOME/.beads/beads.db"
 export BEADS_DIR="$HOME/.beads"  # Required for bv (beads-viewer)
 export BUN_INSTALL="$HOME/.bun"
 
+# MCP Agent Mail token for Codex (Codex reads from env var, not config file)
+if [[ -f "$HOME/mcp_agent_mail/.env" ]]; then
+    export HTTP_BEARER_TOKEN="$(grep -E '^HTTP_BEARER_TOKEN=' "$HOME/mcp_agent_mail/.env" | cut -d= -f2)"
+fi
+
 # =============================================================================
 # Tool Integrations
 # =============================================================================
@@ -143,13 +151,35 @@ eval "$(atuin init zsh)"
 # ntm init disabled - outputs unexpanded Go templates causing parse errors
 # command -v ntm &>/dev/null && eval "$(ntm init zsh)"
 
+# AGENT_NAME from tmux pane title (NTM fix for Farmhand multi-agent)
+# This enables multi-agent state isolation per ~/CLAUDE.md
+# Problem: ntm sets pane title AFTER shell starts, so we use lazy evaluation
+# Also: must use -t "$TMUX_PANE" to query THIS pane, not the active pane
+if [[ -n "$TMUX" && -n "$TMUX_PANE" ]]; then
+  # Lazy evaluation: set AGENT_NAME on first prompt when title is ready
+  _set_agent_name() {
+    local title=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_title}' 2>/dev/null)
+    # Only set if title looks like an ntm agent name (contains __)
+    if [[ "$title" == *"__"* ]]; then
+      export AGENT_NAME="$title"
+      # Remove this hook once set (one-time setup)
+      add-zsh-hook -d precmd _set_agent_name
+    fi
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _set_agent_name
+  # Also try immediate set in case title is already correct
+  _set_agent_name
+fi
+
 # =============================================================================
 # Vibe Mode Aliases (AI Agents)
 # =============================================================================
 # Note: 'cla' instead of 'cc' to avoid conflict with C compiler
-alias cla='claude --dangerously-skip-permissions'
-alias cod='bunx codex --full-auto'
-alias gmi='bunx gemini --yolo'
+# AGENT_NAME is set at runtime from tmux pane title (for multi-agent isolation)
+alias cla='AGENT_NAME="$(tmux display-message -t "$TMUX_PANE" -p "#{pane_title}" 2>/dev/null)" claude --dangerously-skip-permissions'
+alias cod='AGENT_NAME="$(tmux display-message -t "$TMUX_PANE" -p "#{pane_title}" 2>/dev/null)" bunx codex --full-auto'
+alias gmi='AGENT_NAME="$(tmux display-message -t "$TMUX_PANE" -p "#{pane_title}" 2>/dev/null)" bunx gemini --yolo'
 
 # Safe mode aliases
 alias claude-safe='claude'
