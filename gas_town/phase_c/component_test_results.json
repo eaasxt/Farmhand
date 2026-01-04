@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-04T20:21:07.126330+00:00",
+  "timestamp": "2026-01-04T22:28:05.689766+00:00",
   "test_type": "component_functionality",
   "total_tests": 18,
   "passed": 18,
@@ -26,9 +26,9 @@
     "\u2705 Data consistency: History integrity verified",
     "\u2705 Heartbeat system: 2 heartbeats recorded",
     "\u2705 Data cleanup: Cleanup function operational",
-    "\u2705 Creation performance: 551.0 molecules/sec",
-    "\u2705 Checkpoint performance: 542.8 checkpoints/sec",
-    "\u2705 Query performance: 5189.7 queries/sec",
+    "\u2705 Creation performance: 476.8 molecules/sec",
+    "\u2705 Checkpoint performance: 518.7 checkpoints/sec",
+    "\u2705 Query performance: 5026.7 queries/sec",
     "\u2705 Memory management: 50 active molecules tracked"
   ]
 }
