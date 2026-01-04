@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-01-04T18:39:00.470332+00:00",
+  "test_configuration": {
+    "target_agent_count": 25,
+    "total_duration_seconds": 66.53447699546814,
+    "test_environment": "/tmp/gas_town_scale_test_q34o7n72"
+  },
+  "test_results": {
+    "infrastructure_scale": {
+      "test_name": "Infrastructure Scale",
+      "total_agents": 25,
+      "duration_seconds": 0.10231828689575195,
+      "successful_operations": 25,
+      "failed_operations": 0,
+      "success_rate": 100.0,
+      "avg_operation_time": 0.07274140357971191,
+      "throughput_ops_per_sec": 244.33559980799433,
+      "errors": []
+    },
+    "concurrent_molecule_operations": {
+      "test_name": "Concurrent Molecule Operations",
+      "total_agents": 25,
+      "successful_agents": 25,
+      "total_molecules_created": 125,
+      "duration_seconds": 1.5678062438964844,
+      "molecules_per_second": 79.72923981303727,
+      "avg_molecules_per_agent": 5.0,
+      "conflicts": 0,
+      "concurrent_molecules": 0,
+      "success_rate": 100.0
+    },
+    "swarm_coordination_scale": {
+      "test_name": "Swarm Coordination Scale",
+      "total_agents": 25,
+      "teams_formed": 6,
+      "team_formation_time": 0.012481689453125,
+      "work_items_distributed": 50,
+      "work_distribution_time": 0.0021872520446777344,
+      "coordination_events": 20,
+      "successful_coordinations": 20,
+      "coordination_success_rate": 100.0,
+      "coordination_time": 0.0002720355987548828,
+      "total_duration": 0.08149194717407227,
+      "agents_per_team_avg": 4.166666666666667
+    },
+    "conflict_resolution_scale": {
+      "test_name": "Conflict Resolution Scale",
+      "total_agents": 25,
+      "total_access_attempts": 250,
+      "successful_accesses": 250,
+      "conflicts_detected": 0,
+      "conflicts_resolved": 0,
+      "conflict_resolution_rate": 0.0,
+      "success_rate": 100.0,
+      "duration_seconds": 0.7846469879150391,
+      "accesses_per_second": 318.61461759293695
+    },
+    "health_monitoring_scale": {
+      "test_name": "Health Monitoring Scale",
+      "monitored_agents": 25,
+      "total_health_reports": 1500,
+      "active_reports": 1500,
+      "health_success_rate": 100.0,
+      "duration_seconds": 60.081937313079834,
+      "reports_per_second": 24.965906012379033,
+      "final_system_health": "unknown",
+      "monitoring_duration": 60.081937313079834
+    },
+    "end-to-end_integration": {
+      "test_name": "End-to-End Integration",
+      "total_agents": 25,
+      "successful_agents": 25,
+      "total_molecules_processed": 75,
+      "total_operations": 350,
+      "success_rate": 100.0,
+      "duration_seconds": 3.915316581726074,
+      "operations_per_second": 89.3925159547895,
+      "molecules_per_agent": 3.0,
+      "final_active_molecules": 0,
+      "final_system_health": "unknown"
+    }
+  },
+  "overall_assessment": {
+    "target_agent_count": 25,
+    "average_success_rate": 100.0,
+    "minimum_success_rate": 100.0,
+    "scale_status": "SCALE_READY",
+    "scale_ready": true,
+    "recommendations": [
+      "System performing well at target scale"
+    ]
+  }
+}
