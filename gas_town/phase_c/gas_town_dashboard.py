@@ -201,6 +201,10 @@ class GasTownDashboard:
                 'metrics': {'uptime': 0, 'refresh_count': 0}
             }
 
+    def get_dashboard_status(self) -> Dict[str, Any]:
+        """Get current dashboard status (alias for gather_system_data)."""
+        return self.gather_system_data()
+
     def check_gupp_status(self) -> Dict[str, Any]:
         """Check GUPP auto-execution system status."""
         gupp_file = Path("/home/ubuntu/projects/deere/gas_town/phase_c/gupp_auto_execution.py")

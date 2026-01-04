@@ -239,6 +239,18 @@ python3 "{script_path}" status-bar-data 2>/dev/null || echo "🏭 Gas Town"
                 return role.title()
         return "Agent"
 
+    def create_session(self, role: str = "Agent", session_name: Optional[str] = None) -> bool:
+        """Create a new Gas Town agent session (alias for spawn_agent_session)."""
+        return self.spawn_agent_session(role, session_name)
+
+    def list_sessions(self) -> List[Dict[str, str]]:
+        """List all Gas Town agent sessions (alias for discover_agent_sessions)."""
+        return self.discover_agent_sessions()
+
+    def get_sessions(self) -> List[Dict[str, str]]:
+        """Get all Gas Town agent sessions (alias for discover_agent_sessions)."""
+        return self.discover_agent_sessions()
+
     def spawn_agent_session(self, role: str = "Agent", session_name: Optional[str] = None) -> bool:
         """Spawn a new Gas Town agent session."""
         try:

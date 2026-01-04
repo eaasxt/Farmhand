@@ -929,6 +929,10 @@ class EnhancedHealthMonitor:
                 "monitoring_active": self._monitoring_active
             }
 
+    def get_system_health(self) -> Dict[str, Any]:
+        """Get system health status (alias for get_health_summary)."""
+        return self.get_health_summary()
+
     def acknowledge_alert(self, alert_id: str) -> bool:
         """Acknowledge an alert to mark it as seen."""
         if alert_id in self._active_alerts:
