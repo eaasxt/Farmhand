@@ -20,6 +20,9 @@ from core.engine.template_engine import TemplateEngine
 from discovery.analyzer import CodebaseAnalyzer
 from discovery.recommender import TemplateRecommender
 
+# Import AI orchestration CLI commands
+from ai_orchestration_cli import orchestration_cli
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -29,6 +32,10 @@ logger = logging.getLogger(__name__)
 def marketplace():
     """Molecule Marketplace commands for template-driven development."""
     pass
+
+
+# Add AI orchestration commands as a subgroup
+marketplace.add_command(orchestration_cli)
 
 
 @marketplace.command()
