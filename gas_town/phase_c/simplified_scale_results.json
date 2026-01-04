@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-01-04T18:30:56.184199+00:00",
+  "test_configuration": {
+    "target_agent_count": 25,
+    "total_duration_seconds": 13.92016887664795
+  },
+  "test_results": {
+    "concurrent_molecules": {
+      "test_name": "Concurrent Molecules",
+      "target_agents": 25,
+      "successful_agents": 25,
+      "total_molecules": 125,
+      "duration_seconds": 1.5144155025482178,
+      "molecules_per_second": 82.54009536330675,
+      "success_rate": 100.0,
+      "avg_molecules_per_agent": 5.0
+    },
+    "database_performance": {
+      "test_name": "Database Performance",
+      "target_agents": 25,
+      "successful_agents": 25,
+      "total_db_operations": 500,
+      "duration_seconds": 0.7400898933410645,
+      "db_ops_per_second": 675.5936062615289,
+      "success_rate": 100.0,
+      "avg_operation_time": 0.03385912752151489
+    },
+    "resource_contention": {
+      "test_name": "Resource Contention",
+      "target_agents": 25,
+      "successful_agents": 25,
+      "total_access_attempts": 250,
+      "successful_accesses": 250,
+      "conflicts_resolved": 0,
+      "access_success_rate": 100.0,
+      "conflict_resolution_rate": 0.0,
+      "duration_seconds": 0.41036081314086914,
+      "accesses_per_second": 609.219964466197
+    },
+    "scale_stress_test": {
+      "test_name": "Scale Stress Test",
+      "target_agents": 25,
+      "successful_agents": 25,
+      "total_operations": 1797,
+      "duration_seconds": 11.254892587661743,
+      "operations_per_second": 159.66389603486525,
+      "success_rate": 100.0,
+      "avg_ops_per_agent": 71.88,
+      "max_ops_per_agent": 139
+    }
+  },
+  "overall_assessment": {
+    "target_agent_count": 25,
+    "average_success_rate": 75.0,
+    "minimum_success_rate": 0,
+    "scale_status": "SCALE_INSUFFICIENT",
+    "scale_ready": false
+  }
+}
