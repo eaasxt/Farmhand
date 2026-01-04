@@ -121,6 +121,7 @@ class PhaseC_ComponentTester:
                     molecule_id=mol_id,
                     checkpoint_data={**complex_data, **stage_data},
                     state=MoleculeState.RUNNING,
+                    force=True,  # Skip checkpoint interval for testing
                     rollback_point=(i % 2 == 0)  # Every other checkpoint is rollback point
                 )
                 assert checkpoint_success
@@ -142,6 +143,7 @@ class PhaseC_ComponentTester:
                 mol_id,
                 {"stage": "suspended", "reason": "resource_constraint"},
                 MoleculeState.SUSPENDED,
+                force=True,  # Skip checkpoint interval for testing
                 rollback_point=True
             )
 
@@ -149,7 +151,8 @@ class PhaseC_ComponentTester:
             molecule_state.checkpoint_molecule(
                 mol_id,
                 {"stage": "resumed", "reason": "resources_available"},
-                MoleculeState.RUNNING
+                MoleculeState.RUNNING,
+                force=True  # Skip checkpoint interval for testing
             )
 
             self.results.add_success("Suspend/resume lifecycle")

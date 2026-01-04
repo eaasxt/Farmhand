@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-01-04T17:48:21.892126+00:00",
+  "timestamp": "2026-01-04T18:05:38.736386+00:00",
   "test_type": "component_functionality",
-  "total_tests": 14,
-  "passed": 13,
-  "failed": 1,
-  "success_rate": 92.85714285714286,
-  "status": "GOOD",
+  "total_tests": 18,
+  "passed": 18,
+  "failed": 0,
+  "success_rate": 100.0,
+  "status": "EXCELLENT",
   "component_assessment": {
     "molecule_state_system": "operational",
     "database_integration": "operational",
@@ -13,7 +13,11 @@
   },
   "detailed_results": [
     "\u2705 Complex molecule creation: ",
-    "\u274c Advanced molecule state: ",
+    "\u2705 Multi-stage checkpointing: 4 stages",
+    "\u2705 Rollback points: 3 found",
+    "\u2705 Suspend/resume lifecycle: ",
+    "\u2705 Failure and recovery: ",
+    "\u2705 Complex completion: ",
     "\u2705 Configuration parameters: ",
     "\u2705 Database schema: 2 tables",
     "\u2705 Database indexes: 3 indexes",
@@ -22,9 +26,9 @@
     "\u2705 Data consistency: History integrity verified",
     "\u2705 Heartbeat system: 2 heartbeats recorded",
     "\u2705 Data cleanup: Cleanup function operational",
-    "\u2705 Creation performance: 511.1 molecules/sec",
-    "\u2705 Checkpoint performance: 466.5 checkpoints/sec",
-    "\u2705 Query performance: 5258.7 queries/sec",
+    "\u2705 Creation performance: 474.3 molecules/sec",
+    "\u2705 Checkpoint performance: 473.9 checkpoints/sec",
+    "\u2705 Query performance: 5229.8 queries/sec",
     "\u2705 Memory management: 50 active molecules tracked"
   ]
 }
