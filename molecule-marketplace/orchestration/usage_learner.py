@@ -211,9 +211,9 @@ class UsagePatternLearner:
             cursor.execute('''
                 SELECT * FROM workflow_executions
                 WHERE template_name = ?
-                AND start_time > datetime('now', '-{} days')
+                AND start_time > datetime('now', '-' || ? || ' days')
                 ORDER BY start_time DESC
-            '''.format(self.learning_window_days), (template_name,))
+            ''', (template_name, self.learning_window_days))
 
             executions = cursor.fetchall()
 

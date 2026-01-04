@@ -285,8 +285,8 @@ class ContinuousLearningPipeline:
             cursor.execute('''
                 SELECT DISTINCT template_name
                 FROM workflow_executions
-                WHERE start_time > datetime('now', '-{} days')
-            '''.format(self.trend_analysis_window))
+                WHERE start_time > datetime('now', '-' || ? || ' days')
+            ''', (self.trend_analysis_window,))
 
             templates = [row[0] for row in cursor.fetchall()]
 
@@ -320,10 +320,10 @@ class ContinuousLearningPipeline:
                        COUNT(*) as executions
                 FROM workflow_executions
                 WHERE template_name = ?
-                AND start_time > datetime('now', '-{} days')
+                AND start_time > datetime('now', '-' || ? || ' days')
                 GROUP BY DATE(start_time)
                 ORDER BY day
-            '''.format(self.trend_analysis_window), (template_name,))
+            ''', (template_name, self.trend_analysis_window))
 
             daily_data = cursor.fetchall()
 
@@ -381,10 +381,10 @@ class ContinuousLearningPipeline:
                        COUNT(*) as total_executions,
                        COUNT(DISTINCT template_name) as unique_templates
                 FROM workflow_executions
-                WHERE start_time > datetime('now', '-{} days')
+                WHERE start_time > datetime('now', '-' || ? || ' days')
                 GROUP BY DATE(start_time)
                 ORDER BY day
-            '''.format(self.trend_analysis_window))
+            ''', (self.trend_analysis_window,))
 
             daily_data = cursor.fetchall()
 
@@ -961,8 +961,8 @@ class ContinuousLearningPipeline:
                 SELECT COUNT(*) as total_executions,
                        AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as avg_success_rate
                 FROM workflow_executions
-                WHERE start_time > datetime('now', '-{} days')
-            '''.format(days))
+                WHERE start_time > datetime('now', '-' || ? || ' days')
+            ''', (days,))
 
             stats = cursor.fetchone()
             total_executions = stats[0] if stats else 0
@@ -970,9 +970,9 @@ class ContinuousLearningPipeline:
             # Get recent insights
             cursor.execute('''
                 SELECT * FROM learning_insights
-                WHERE discovered_at > datetime('now', '-{} days')
+                WHERE discovered_at > datetime('now', '-' || ? || ' days')
                 ORDER BY confidence_score DESC
-            '''.format(days))
+            ''', (days,))
 
             insight_rows = cursor.fetchall()
             new_insights = []
@@ -995,9 +995,9 @@ class ContinuousLearningPipeline:
             # Get recent trends
             cursor.execute('''
                 SELECT * FROM performance_trends
-                WHERE created_at > datetime('now', '-{} days')
+                WHERE created_at > datetime('now', '-' || ? || ' days')
                 ORDER BY confidence DESC
-            '''.format(days))
+            ''', (days,))
 
             trend_rows = cursor.fetchall()
             performance_trends = []
@@ -1020,8 +1020,8 @@ class ContinuousLearningPipeline:
             # Calculate system health score
             cursor.execute('''
                 SELECT AVG(health_score) FROM system_health_metrics
-                WHERE metric_date > date('now', '-{} days')
-            '''.format(days))
+                WHERE metric_date > date('now', '-' || ? || ' days')
+            ''', (days,))
 
             health_result = cursor.fetchone()
             system_health_score = health_result[0] if health_result and health_result[0] else 0.5
