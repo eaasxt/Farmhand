@@ -1,603 +1,544 @@
-# Gas Town MEOW Stack - Production Deployment Guide
+# Gas Town MCP Integration Layer - Production Deployment Guide
 
-**Complete deployment automation and rollback procedures for 100% production readiness**
+**Complete deployment procedures for the Gas Town MCP Integration Layer**
 
-## Overview
+This guide covers deployment of the production-ready enhancement system that bridges Steve Yegge's Gas Town with the MCP Agent Mail ecosystem.
 
-This guide covers the comprehensive deployment automation system for the Gas Town MEOW stack, including:
+## 🎯 **Deployment Overview**
 
-- **Automated Deployment Pipeline** - Full automation for all MEOW components
-- **Zero-Downtime Deployment** - Blue-green deployment strategies  
-- **Comprehensive Rollback** - Complete rollback procedures and automation
-- **CI/CD Integration** - Git hooks and GitHub Actions integration
-- **Production Safety** - Validation, monitoring, and emergency procedures
+### **What We're Deploying**
 
----
+The Gas Town MCP Integration Layer consists of:
+- **Bridge System**: Detection and integration with Steve's Gas Town v0.1.1+
+- **Enhanced Dashboard**: Real-time monitoring beyond basic status
+- **tmux Integration**: Enhanced UX with Gas Town-themed configuration
+- **MCP Connectivity**: Bridge to Agent Mail ecosystem
 
-## 🏗️ Architecture Overview
+### **Architecture**
 
 ```
-Gas Town MEOW Stack - Deployment Architecture
-
-deployment/
-├── scripts/                          # Automation Scripts
-│   ├── deploy/                      # Deployment automation
-│   │   └── deploy_meow_stack.sh     # Main deployment script
-│   ├── rollback/                    # Rollback procedures  
-│   │   └── rollback_meow_stack.sh   # Comprehensive rollback
-│   ├── zero-downtime/               # Blue-green deployment
-│   │   └── blue_green_deploy.sh     # Zero-downtime deployment
-│   └── validation/                  # Pre/post deployment validation
-│       └── deployment_validator.sh  # Validation suite
-├── ci-cd/                           # CI/CD Integration
-│   ├── hooks/                       # Git hooks
-│   │   ├── pre-receive             # Pre-deployment validation
-│   │   └── post-receive            # Automated deployment trigger
-│   └── pipelines/                   # CI/CD pipelines
-│       └── github_actions.yml      # GitHub Actions workflow
-├── configs/                         # Deployment configurations
-├── logs/                           # Deployment logs and reports
-└── backup/                         # System backups
+┌─────────────────────┐    ┌──────────────────────┐    ┌─────────────────────┐
+│  Steve's Gas Town   │    │  Gas Town MCP Bridge │    │   MCP Agent Mail    │
+│     (Go System)     │◄──►│   (Python Layer)     │◄──►│    (Ecosystem)      │
+├─────────────────────┤    ├──────────────────────┤    ├─────────────────────┤
+│ ✅ Existing System  │    │ 🔄 Our Integration    │    │ ✅ Existing System  │
+│ ✅ No Changes       │    │ 📊 Enhanced Features  │    │ ✅ No Changes       │
+└─────────────────────┘    └──────────────────────┘    └─────────────────────┘
 ```
 
----
+## 🚀 **Quick Deployment**
 
-## 🚀 Quick Start
-
-### 1. Validate Environment
+### **Prerequisites Validation**
 
 ```bash
-# Run pre-deployment validation
-./deployment/scripts/validation/deployment_validator.sh -t pre
+# 1. Verify Steve's Gas Town is installed
+which gt || echo "ERROR: Install Steve's Gas Town first"
+gt --version  # Should show: gt version 0.1.1+
 
-# Check deployment readiness
-./deployment/scripts/deploy/deploy_meow_stack.sh --validate-only
+# 2. Verify MCP Agent Mail is running
+curl -s http://127.0.0.1:8765/health || echo "WARNING: MCP Agent Mail not running"
+
+# 3. Check Python environment
+python3 --version  # Should be Python 3.8+
 ```
 
-### 2. Standard Deployment
+### **Installation**
 
 ```bash
-# Deploy all components
-./deployment/scripts/deploy/deploy_meow_stack.sh
+# Deploy the Gas Town MCP Integration Layer
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
 
-# Deploy specific component
-./deployment/scripts/deploy/deploy_meow_stack.sh -c marketplace
-./deployment/scripts/deploy/deploy_meow_stack.sh -c monitoring
-./deployment/scripts/deploy/deploy_meow_stack.sh -c orchestration
+# Update PATH for new tools
+echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+gt-mcp detect
+gt-mcp status
 ```
 
-### 3. Zero-Downtime Deployment
+### **Enhanced Features Setup**
 
 ```bash
-# Blue-green deployment (production recommended)
-./deployment/scripts/zero-downtime/blue_green_deploy.sh
+# Configure tmux integration
+gt-mcp tmux setup
+echo 'source-file ~/.tmux.conf.gastown-mcp' >> ~/.tmux.conf
+tmux source-file ~/.tmux.conf
 
-# With custom ports
-./deployment/scripts/zero-downtime/blue_green_deploy.sh --blue-port 9000 --green-port 9001
+# Test enhanced dashboard
+gt-mcp dashboard --detect
 ```
 
-### 4. Emergency Rollback
+## 📋 **Deployment Verification**
+
+### **Integration Verification**
 
 ```bash
-# List available backups
-./deployment/scripts/rollback/rollback_meow_stack.sh -l
+# 1. Detection Test
+gt-mcp detect --json
+# Expected: Shows Steve's Gas Town found and integrated
 
-# Rollback to latest backup
-./deployment/scripts/rollback/rollback_meow_stack.sh
+# 2. Status Integration Test
+gt-mcp status
+# Expected: Shows combined Gas Town + MCP status
 
-# Rollback to specific backup
-./deployment/scripts/rollback/rollback_meow_stack.sh -b 20240104_143022
+# 3. Command Passthrough Test
+gt-mcp --version
+# Expected: Shows Steve's gt version (passthrough working)
 
-# Force rollback without confirmation
-./deployment/scripts/rollback/rollback_meow_stack.sh -f
+# 4. Dashboard Test
+timeout 10 gt-mcp dashboard --detect
+# Expected: Launches without errors
+
+# 5. tmux Integration Test
+gt-mcp tmux status
+# Expected: Shows tmux session information
 ```
 
----
-
-## 📋 Deployment Scripts Reference
-
-### Main Deployment Script
-
-**File:** `deployment/scripts/deploy/deploy_meow_stack.sh`
+### **Performance Validation**
 
 ```bash
-# Full deployment with all safety checks
-./deploy_meow_stack.sh
-
-# Validation only (dry run)
-./deploy_meow_stack.sh --validate-only
-
-# Skip backup (faster deployment)
-./deploy_meow_stack.sh --skip-backup
-
-# Deploy specific component
-./deploy_meow_stack.sh --component marketplace
-
-# Disable auto-rollback on failure
-./deploy_meow_stack.sh --no-auto-rollback
-
-# Custom environment
-ENVIRONMENT=staging ./deploy_meow_stack.sh
+# Timing benchmarks (should be sub-second)
+time gt-mcp detect       # < 0.2s expected
+time gt-mcp status       # < 0.5s expected (Steve's gt call dominates)
+time gt-mcp dashboard --detect  # < 0.3s expected
 ```
 
-**Features:**
-- ✅ Pre-deployment validation
-- ✅ Automatic backup creation
-- ✅ Component-wise deployment
-- ✅ Health checks and validation
-- ✅ Automatic rollback on failure
-- ✅ Comprehensive logging
-
-### Zero-Downtime Deployment
-
-**File:** `deployment/scripts/zero-downtime/blue_green_deploy.sh`
+### **MCP Integration Test**
 
 ```bash
-# Standard blue-green deployment
-./blue_green_deploy.sh
+# Test MCP Agent Mail connectivity
+curl -s http://127.0.0.1:8765/health
+# Expected: {"status": "healthy"}
 
-# Custom port configuration
-./blue_green_deploy.sh --blue-port 8000 --green-port 8001
-
-# Extended health check timeout
-./blue_green_deploy.sh --health-timeout 600
-
-# Quick traffic switch (advanced)
-./blue_green_deploy.sh --switch-delay 5
+# Test bridge services
+gt-mcp detect --json | jq '.integration.mcp_available'
+# Expected: true
 ```
 
-**Blue-Green Process:**
-1. 🔍 Detect current deployment (blue/green)
-2. 🚀 Start new deployment on alternate color
-3. 🏥 Comprehensive health validation
-4. 🔄 Gradual traffic switching with monitoring
-5. 🛑 Stop old deployment after validation
-6. 🚨 Emergency rollback if any step fails
+## 🏗️ **Component Architecture**
 
-### Comprehensive Rollback
+### **Installed Components**
 
-**File:** `deployment/scripts/rollback/rollback_meow_stack.sh`
-
-```bash
-# Interactive rollback (default)
-./rollback_meow_stack.sh
-
-# List all available backups
-./rollback_meow_stack.sh --list
-
-# Rollback specific component
-./rollback_meow_stack.sh --component marketplace
-
-# Force rollback (no confirmation)
-./rollback_meow_stack.sh --force
-
-# Rollback to specific backup
-./rollback_meow_stack.sh --backup-id 20240104_143022
+```
+~/.local/bin/
+├── gt-mcp -> gt_mcp_wrapper.py         # Main CLI entry point
+├── gt_mcp_wrapper.py                   # CLI wrapper (passes through to Steve's gt)
+├── gastown_mcp_bridge.py               # Detection and bridge system
+└── enhanced_gastown_dashboard.py       # Real-time monitoring dashboard
 ```
 
-**Rollback Features:**
-- ✅ Backup integrity validation
-- ✅ Service graceful shutdown
-- ✅ Database restoration with safety checks
-- ✅ Configuration rollback
-- ✅ Service restart and validation
-- ✅ Rollback reporting and logging
+### **Configuration Files**
 
-### Deployment Validation
-
-**File:** `deployment/scripts/validation/deployment_validator.sh`
-
-```bash
-# Pre-deployment validation
-./deployment_validator.sh -t pre
-
-# Post-deployment validation  
-./deployment_validator.sh -t post
-
-# Strict mode (fail on warnings)
-./deployment_validator.sh -t pre --strict
-
-# Custom environment
-./deployment_validator.sh -t pre -e staging
+```
+~/.tmux.conf.gastown-mcp               # Enhanced tmux configuration
+~/.config/gt-mcp/                      # Future configuration directory
 ```
 
-**Validation Categories:**
-- 🔧 System requirements (Python, SQLite, disk, memory)
-- 📁 File structure and permissions
-- 🐍 Python dependencies and imports
-- 🗄️ Database connectivity and integrity
-- 🏥 Service health and endpoints
-- 🌐 Network connectivity and ports
-- 🔒 Security configuration
+## 🔄 **Deployment Workflows**
 
----
+### **Standard Workflow**
 
-## 🔄 CI/CD Integration
-
-### Git Hooks
-
-**Pre-receive Hook:** `deployment/ci-cd/hooks/pre-receive`
-- Validates commit messages and format
-- Scans for potential secrets
-- Checks code syntax
-- Validates deployment readiness
-
-**Post-receive Hook:** `deployment/ci-cd/hooks/post-receive`
-- Triggers automated deployment based on branch
-- Creates deployment locks to prevent conflicts
-- Executes appropriate deployment strategy
-- Performs post-deployment validation
-
-**Installation:**
 ```bash
-# Copy to your git repository hooks
-cp deployment/ci-cd/hooks/* /path/to/repo/.git/hooks/
-chmod +x /path/to/repo/.git/hooks/*
+# 1. Validate Environment
+gt --version && echo "✅ Steve's Gas Town ready"
+curl -s http://127.0.0.1:8765/health && echo "✅ MCP Agent Mail ready"
+
+# 2. Deploy Integration Layer
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
+
+# 3. Configure Environment
+export PATH="$PATH:$HOME/.local/bin"
+
+# 4. Verify Integration
+gt-mcp detect && echo "✅ Integration successful"
+
+# 5. Setup Enhanced Features
+gt-mcp tmux setup && echo "✅ tmux integration ready"
+
+# 6. Test Complete System
+gt-mcp status && echo "✅ System operational"
 ```
 
-### GitHub Actions
-
-**File:** `deployment/ci-cd/pipelines/github_actions.yml`
-
-**Workflow Stages:**
-1. **Validation & Security** - Code quality, security scans, syntax checks
-2. **Testing** - Unit tests, integration tests, health simulations
-3. **Build & Package** - Create deployment artifacts
-4. **Deploy Production** - Blue-green deployment with health checks
-5. **Post-Deploy Validation** - Comprehensive validation and rollback triggers
-
-**Branch Strategies:**
-- `main/master` → Production deployment
-- `staging/release` → Staging deployment  
-- `development/dev` → Development deployment
-- Pull requests → Validation only
-
----
-
-## 🏥 Health Checks & Monitoring
-
-### Health Check Endpoints
-
-The deployment system monitors these endpoints:
-- `http://localhost:8000/health` - Marketplace API
-- `http://localhost:8080/health` - Health monitoring service
-- `http://localhost:9090/health` - Orchestration engine
-
-### Health Check Integration
+### **Multi-Agent Setup Workflow**
 
 ```bash
-# Manual health check
-cd monitoring && ./scripts/health_check.sh
+# 1. Base deployment (as above)
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
 
-# Health check with custom timeout
-HEALTH_CHECK_TIMEOUT=300 ./scripts/health_check.sh
+# 2. Start MCP Agent Mail if needed
+sudo systemctl start mcp-agent-mail
 
-# Post-deployment validation
-./deployment/scripts/validation/deployment_validator.sh -t post
+# 3. Verify multi-agent readiness
+gt-mcp detect --json | jq '.integration.bridge_status'
+# Expected: "active"
+
+# 4. Test agent registration capability
+# (Actual registration done by individual agents)
+curl -s http://127.0.0.1:8765/mail
+# Expected: Web interface accessible
 ```
 
-### Monitoring Integration
+## 🔧 **Configuration Management**
 
-All deployment scripts integrate with the existing monitoring system:
-- 📊 Automatic health reporting
-- 🚨 Alert generation on failures
-- 📈 Performance metric collection
-- 📋 Deployment status tracking
+### **Bridge Configuration**
 
----
+The integration layer automatically detects and adapts:
 
-## 🚨 Emergency Procedures
+```python
+# Detection paths for Steve's Gas Town
+DETECTION_PATHS = [
+    "/home/ubuntu/go/bin/gt",
+    "/usr/local/bin/gt",
+    "~/go/bin/gt"
+]
 
-### Deployment Failure Recovery
+# Performance settings
+DETECTION_TIMEOUT = 10  # seconds
+DETECTION_CACHE = 60    # seconds
 
-**If deployment fails during execution:**
-1. Automatic rollback is triggered (if enabled)
-2. Services are restored to previous state
-3. Failure logs are captured in `deployment/logs/`
-4. Alert notifications are sent
-
-**Manual intervention:**
-```bash
-# Check deployment status
-tail -f deployment/logs/deploy_*.log
-
-# Force rollback if auto-rollback failed
-./deployment/scripts/rollback/rollback_meow_stack.sh --force
-
-# Validate system after rollback
-./deployment/scripts/validation/deployment_validator.sh -t post
+# Dashboard settings
+REFRESH_RATE = 5        # seconds
+DATA_GATHERING_TIMEOUT = 30  # seconds
 ```
 
-### Service Recovery
+### **tmux Configuration**
 
-**If services are unresponsive after deployment:**
+Enhanced key bindings added to `~/.tmux.conf.gastown-mcp`:
+
 ```bash
+# Gas Town MCP Integration Key Bindings
+bind-key g display-popup -E -d "#{pane_current_path}" "gt-mcp status"
+bind-key G display-popup -E -d "#{pane_current_path}" -h 90% "gt-mcp dashboard"
+bind-key m display-popup -E -d "#{pane_current_path}" "gt-mcp detect"
+bind-key b display-popup -E -d "#{pane_current_path}" "gt-mcp detect --json"
+```
+
+### **Environment Variables**
+
+```bash
+# Optional configuration
+export GT_MCP_CACHE_TIMEOUT=60        # Detection cache duration
+export GT_MCP_HEALTH_TIMEOUT=30       # Health check timeout
+export GT_MCP_DASHBOARD_REFRESH=5     # Dashboard refresh rate
+export GT_MCP_DEBUG=0                 # Debug logging (0 or 1)
+```
+
+## 🚨 **Troubleshooting**
+
+### **Common Issues**
+
+#### **Steve's Gas Town Not Found**
+
+```bash
+# Symptom: gt-mcp detect shows "found": false
+
+# Solution 1: Check installation
+which gt
+go install github.com/steveyegge/gastown/cmd/gt@latest
+
+# Solution 2: Add to PATH
+export PATH="$PATH:$HOME/go/bin"
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.bashrc
+```
+
+#### **MCP Agent Mail Not Available**
+
+```bash
+# Symptom: gt-mcp status shows MCP unavailable
+
 # Check service status
-ps aux | grep -E "(health_endpoint|monitoring|marketplace)"
+sudo systemctl status mcp-agent-mail
 
-# Restart specific services
-cd monitoring && ./scripts/health_endpoint.sh restart
+# Start if needed
+sudo systemctl start mcp-agent-mail
 
-# Full system restart
-./deployment/scripts/deploy/deploy_meow_stack.sh -c all --skip-backup
+# Verify endpoint
+curl -s http://127.0.0.1:8765/health
 ```
 
-### Database Recovery
-
-**If database is corrupted:**
-```bash
-# List available database backups
-ls deployment/backup/*/marketplace.db.bak
-
-# Restore from specific backup
-./deployment/scripts/rollback/rollback_meow_stack.sh -b BACKUP_ID -c marketplace
-
-# Validate database integrity
-sqlite3 molecule-marketplace/marketplace.db "PRAGMA integrity_check;"
-```
-
----
-
-## 📊 Deployment Metrics & Reporting
-
-### Automatic Reporting
-
-All deployment operations generate comprehensive reports:
-
-**Deployment Reports:** `deployment/logs/deployment_report_*.json`
-```json
-{
-  "deployment_timestamp": "2024-01-04T15:30:00Z",
-  "deployment_type": "blue_green", 
-  "deployment_successful": true,
-  "components_deployed": ["marketplace", "monitoring", "orchestration"],
-  "deployment_duration": "00:05:23",
-  "health_checks_passed": true
-}
-```
-
-**Validation Reports:** `deployment/logs/validation_report_*.json`
-```json
-{
-  "validation_timestamp": "2024-01-04T15:25:00Z",
-  "validation_type": "pre",
-  "results": {
-    "total_checks": 45,
-    "passed": 43,
-    "failed": 0,
-    "warnings": 2,
-    "success_rate": 95
-  },
-  "deployment_ready": true
-}
-```
-
-**Rollback Reports:** `deployment/logs/rollback_report_*.json`
-```json
-{
-  "rollback_timestamp": "2024-01-04T15:45:00Z",
-  "backup_used": "20240104_152500",
-  "rollback_successful": true,
-  "components_restored": ["marketplace", "monitoring"],
-  "rollback_reason": "health_check_failure"
-}
-```
-
-### Log Analysis
+#### **Bridge Commands Not Working**
 
 ```bash
-# View recent deployment activity
-ls -la deployment/logs/ | head -10
+# Symptom: gt-mcp command not found
 
-# Check deployment success rate
-grep -c "deployment_successful.*true" deployment/logs/deployment_report_*.json
+# Check installation
+ls -la ~/.local/bin/gt-mcp
 
-# View validation summaries  
-grep -E "(passed|failed|warnings)" deployment/logs/validation_report_*.json | tail -5
+# Reinstall if needed
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
 
-# Monitor real-time deployment
-tail -f deployment/logs/deploy_$(date +%Y%m%d)_*.log
+# Verify PATH
+echo $PATH | grep -o ~/.local/bin || echo "Add ~/.local/bin to PATH"
 ```
 
----
-
-## 🔧 Configuration Management
-
-### Environment-Specific Configurations
-
-**Production:**
-```bash
-ENVIRONMENT=production ./deploy_meow_stack.sh
-AUTO_ROLLBACK=true
-HEALTH_CHECK_TIMEOUT=300
-SKIP_BACKUP=false
-```
-
-**Staging:**
-```bash
-ENVIRONMENT=staging ./deploy_meow_stack.sh  
-AUTO_ROLLBACK=false
-HEALTH_CHECK_TIMEOUT=60
-SKIP_BACKUP=true
-```
-
-**Development:**
-```bash
-ENVIRONMENT=development ./deploy_meow_stack.sh
-VALIDATE_ONLY=false
-COMPONENT=all
-```
-
-### Deployment Configuration Files
-
-**Health Configuration:** `monitoring/config/health_config.yaml`
-**Alert Rules:** `monitoring/alerts/alert_rules.yaml`
-**Deployment Settings:** `deployment/configs/`
-
----
-
-## 🛡️ Security Considerations
-
-### Deployment Security
-
-- ✅ No secrets in deployment scripts
-- ✅ Secure file permissions (755 for scripts)
-- ✅ Input validation and sanitization
-- ✅ Secure backup handling
-- ✅ Process isolation
-
-### Access Control
+#### **Dashboard Issues**
 
 ```bash
-# Recommended permissions
-chmod 755 deployment/scripts/**/*.sh
-chmod 644 deployment/configs/**/*.yaml
-chmod 700 deployment/backup/
-chmod 600 deployment/logs/*.log
+# Symptom: Dashboard fails to launch
+
+# Check Rich library availability
+python3 -c "import rich; print('Rich available')" || pip3 install rich
+
+# Test in fallback mode
+gt-mcp dashboard --detect 2>&1 | head -20
 ```
 
-### Secret Management
+#### **Permission Issues**
 
-- Use environment variables for secrets
-- Never commit credentials to repository
-- Rotate deployment keys regularly
-- Monitor for secret leakage in logs
-
----
-
-## 📈 Performance Optimization
-
-### Deployment Speed
-
-**Fast Deployment (when backup exists):**
-```bash
-./deploy_meow_stack.sh --skip-backup -c marketplace
-```
-
-**Parallel Component Deployment:**
-```bash
-# Deploy components in parallel (advanced)
-./deploy_meow_stack.sh -c marketplace &
-./deploy_meow_stack.sh -c monitoring &
-./deploy_meow_stack.sh -c orchestration &
-wait
-```
-
-### Resource Optimization
-
-- Database operations use minimal locking
-- Health checks are non-blocking
-- Backup creation is incremental when possible
-- Log rotation prevents disk overflow
-
----
-
-## 🔬 Testing & Validation
-
-### Testing Deployment Scripts
-
-```bash
-# Test deployment in development environment
-ENVIRONMENT=development VALIDATE_ONLY=true ./deploy_meow_stack.sh
-
-# Test rollback procedures
-./rollback_meow_stack.sh --list
-./rollback_meow_stack.sh --backup-id test_backup --no-confirm
-
-# Validate blue-green deployment
-./blue_green_deploy.sh --blue-port 19000 --green-port 19001
-```
-
-### Continuous Validation
-
-```bash
-# Set up continuous validation (cron)
-*/5 * * * * cd /path/to/project && ./deployment/scripts/validation/deployment_validator.sh -t post > /dev/null
-
-# Health monitoring integration
-cd monitoring && ./scripts/health_check.sh
-```
-
----
-
-## 🆘 Support & Troubleshooting
-
-### Common Issues
-
-**1. Port Conflicts**
-```bash
-# Check port usage
-lsof -i :8000
-# Kill conflicting process or use different ports
-./blue_green_deploy.sh --blue-port 8002 --green-port 8003
-```
-
-**2. Permission Errors**
 ```bash
 # Fix script permissions
-chmod +x deployment/scripts/**/*.sh
-# Check file ownership
-chown -R $USER deployment/
+chmod +x ~/.local/bin/gt-mcp
+chmod +x ~/.local/bin/gt_mcp_wrapper.py
+chmod +x ~/.local/bin/gastown_mcp_bridge.py
+chmod +x ~/.local/bin/enhanced_gastown_dashboard.py
 ```
 
-**3. Database Lock**
+### **Diagnostic Commands**
+
 ```bash
-# Check for database locks
-sqlite3 molecule-marketplace/marketplace.db ".timeout 30000"
-# Restart database-dependent services
+# Complete system check
+echo "=== Steve's Gas Town ==="
+which gt && gt --version
+
+echo "=== MCP Agent Mail ==="
+curl -s http://127.0.0.1:8765/health
+
+echo "=== Integration Bridge ==="
+gt-mcp detect --json
+
+echo "=== Performance Test ==="
+time gt-mcp detect
+
+echo "=== tmux Integration ==="
+gt-mcp tmux status
 ```
 
-**4. Health Check Failures**
+## 📊 **Monitoring & Validation**
+
+### **Health Monitoring**
+
 ```bash
-# Increase health check timeout
-HEALTH_CHECK_TIMEOUT=600 ./deploy_meow_stack.sh
-# Check service logs
-tail -f deployment/logs/deploy_*.log
+# Continuous health monitoring
+watch -n 30 'gt-mcp status | head -20'
+
+# Performance monitoring
+time gt-mcp detect && echo "Detection performance OK"
+
+# Resource monitoring
+ps aux | grep -E "(gt-mcp|enhanced_gastown)" | grep -v grep
 ```
 
-### Getting Help
+### **Integration Metrics**
 
-- 📋 Check deployment logs: `deployment/logs/`
-- 🔍 Run validation: `./deployment_validator.sh -t post --strict`
-- 🏥 Manual health check: `cd monitoring && ./scripts/health_check.sh`
-- 📊 Review reports: `deployment/logs/*_report_*.json`
+| Component | Expected Performance | Validation |
+|-----------|---------------------|------------|
+| **Detection** | < 0.2s | `time gt-mcp detect` |
+| **Status** | < 0.5s | `time gt-mcp status` |
+| **Dashboard** | < 0.3s | `time gt-mcp dashboard --detect` |
+| **Memory** | < 20MB | `ps aux` for gt-mcp processes |
+
+### **Validation Reports**
+
+```bash
+# Generate deployment report
+{
+  echo "=== Gas Town MCP Integration Deployment Report ==="
+  echo "Date: $(date)"
+  echo "User: $(whoami)"
+  echo "Host: $(hostname)"
+  echo ""
+  echo "=== Steve's Gas Town ==="
+  which gt && gt --version || echo "NOT FOUND"
+  echo ""
+  echo "=== MCP Agent Mail ==="
+  curl -s http://127.0.0.1:8765/health || echo "NOT RUNNING"
+  echo ""
+  echo "=== Integration Status ==="
+  gt-mcp detect --json 2>/dev/null || echo "INTEGRATION FAILED"
+  echo ""
+  echo "=== Performance ==="
+  echo -n "Detection time: "
+  (time gt-mcp detect >/dev/null) 2>&1 | grep real
+} > /tmp/gt-mcp-deployment-report.txt
+
+cat /tmp/gt-mcp-deployment-report.txt
+```
+
+## 🔐 **Security Considerations**
+
+### **Security Features**
+
+- ✅ **No Privilege Escalation**: Integration layer runs with user permissions
+- ✅ **Command Passthrough**: All gt commands pass through to Steve's binary
+- ✅ **Local Operations**: No external network dependencies beyond MCP
+- ✅ **File Permissions**: Secure file permissions on installation
+- ✅ **No System Changes**: Preserves existing Gas Town configuration
+
+### **Security Validation**
+
+```bash
+# Check file permissions
+ls -la ~/.local/bin/gt-mcp*
+# Expected: -rwxr-xr-x (755 permissions)
+
+# Verify no sudo required
+gt-mcp status  # Should work without sudo
+
+# Check for secure operation
+gt-mcp detect --json | jq '.security // "No security violations detected"'
+```
+
+## 📈 **Performance Optimization**
+
+### **Optimization Settings**
+
+```bash
+# Cache optimization for frequent calls
+export GT_MCP_CACHE_TIMEOUT=120  # 2-minute cache
+
+# Dashboard optimization for slower systems
+export GT_MCP_DASHBOARD_REFRESH=10  # 10-second refresh
+
+# Health check optimization
+export GT_MCP_HEALTH_TIMEOUT=60  # 1-minute timeout
+```
+
+### **Performance Tuning**
+
+```bash
+# For high-frequency usage
+echo 'alias gts="gt-mcp status"' >> ~/.bashrc
+echo 'alias gtd="gt-mcp detect"' >> ~/.bashrc
+
+# For development environments
+echo 'export GT_MCP_DEBUG=1' >> ~/.bashrc  # Enable debug logging
+
+# For production environments
+echo 'export GT_MCP_CACHE_TIMEOUT=300' >> ~/.bashrc  # 5-minute cache
+```
+
+## 🔄 **Upgrade Procedures**
+
+### **Upgrading Steve's Gas Town**
+
+```bash
+# Update Steve's system (our layer automatically adapts)
+go install github.com/steveyegge/gastown/cmd/gt@latest
+
+# Verify integration still works
+gt-mcp detect
+gt-mcp status
+```
+
+### **Upgrading Integration Layer**
+
+```bash
+# Backup current installation
+cp ~/.local/bin/gt_mcp_wrapper.py ~/.local/bin/gt_mcp_wrapper.py.bak
+
+# Deploy new version
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
+
+# Verify upgrade
+gt-mcp detect --json | jq '.version // "No version info"'
+```
+
+### **Rolling Back Integration**
+
+```bash
+# Remove integration layer
+rm ~/.local/bin/gt-mcp*
+
+# Restore direct access to Steve's Gas Town
+# (Steve's system continues working unchanged)
+gt --version  # Direct access to Steve's binary
+
+# Re-install integration if needed
+python3 /tmp/migrate_to_mcp_bridge.py --migrate
+```
+
+## 📚 **Reference Documentation**
+
+### **Command Reference**
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `gt-mcp detect` | Show integration status | `gt-mcp detect --json` |
+| `gt-mcp status` | Combined system status | `gt-mcp status` |
+| `gt-mcp dashboard` | Launch monitoring | `gt-mcp dashboard` |
+| `gt-mcp tmux setup` | Configure tmux | `gt-mcp tmux setup` |
+| `gt-mcp <any-command>` | Pass through to Steve's gt | `gt-mcp convoy list` |
+
+### **Integration Points**
+
+- **Steve's Gas Town**: `/home/ubuntu/go/bin/gt` (no changes)
+- **MCP Agent Mail**: `http://127.0.0.1:8765/` (no changes)
+- **Integration Bridge**: `~/.local/bin/gt-mcp` (our addition)
+- **Enhanced tmux**: `~/.tmux.conf.gastown-mcp` (our addition)
+
+### **Related Documentation**
+
+- **[Integration Guide](/home/ubuntu/projects/deere/INTEGRATION_GUIDE.md)**: Complete integration process
+- **[AI Orchestration Guide](/home/ubuntu/projects/deere/AI_ORCHESTRATION_GUIDE.md)**: Multi-agent coordination
+- **[Validation Report](/home/ubuntu/projects/deere/gas_town/docs/VALIDATION_REPORT.md)**: Testing results
+- **[Gas Town Archive](/home/ubuntu/projects/deere/gas_town/archive/ARCHIVE_README.md)**: Historical reference
+
+## 🎯 **Production Checklist**
+
+### **Pre-Deployment**
+
+- [ ] Steve's Gas Town v0.1.1+ installed and working
+- [ ] MCP Agent Mail running on port 8765
+- [ ] Python 3.8+ available
+- [ ] User has ~/.local/bin in PATH
+
+### **Deployment**
+
+- [ ] Run migration script: `python3 /tmp/migrate_to_mcp_bridge.py --migrate`
+- [ ] Update PATH: `export PATH="$PATH:$HOME/.local/bin"`
+- [ ] Verify detection: `gt-mcp detect`
+- [ ] Test status: `gt-mcp status`
+
+### **Post-Deployment**
+
+- [ ] Configure tmux: `gt-mcp tmux setup`
+- [ ] Test dashboard: `gt-mcp dashboard --detect`
+- [ ] Validate performance: `time gt-mcp detect` (< 0.2s)
+- [ ] Test command passthrough: `gt-mcp --version`
+- [ ] Verify MCP connectivity: `gt-mcp detect --json | jq '.integration'`
+
+### **Production Validation**
+
+- [ ] All commands work as expected
+- [ ] Performance meets benchmarks (< 0.5s response times)
+- [ ] Steve's Gas Town functionality unchanged
+- [ ] MCP integration functional
+- [ ] Enhanced features operational
+- [ ] No security issues detected
+
+## 🏆 **Success Metrics**
+
+### **Integration Success Criteria**
+
+✅ **Steve's Gas Town Integration**: All `gt` commands work through `gt-mcp`
+✅ **Enhanced Status**: Combined system visibility
+✅ **Real-Time Dashboard**: Monitoring beyond basic status
+✅ **tmux Integration**: Enhanced UX with Gas Town theming
+✅ **MCP Connectivity**: Bridge to Agent Mail ecosystem
+✅ **Performance**: Sub-second response times
+✅ **Non-Competing**: No conflicts with existing systems
+
+### **Deployment Complete**
+
+🎉 **Gas Town MCP Integration Layer Successfully Deployed**
+
+The system is now ready for production use with:
+- Enhanced monitoring and dashboard capabilities
+- Superior tmux integration for multi-agent coordination
+- MCP ecosystem connectivity through Agent Mail bridge
+- Full compatibility with Steve's sophisticated Gas Town system
 
 ---
 
-## 📝 Changelog & Versioning
-
-**Version 1.0.0** - Initial Release
-- ✅ Complete deployment automation
-- ✅ Zero-downtime blue-green deployment
-- ✅ Comprehensive rollback procedures  
-- ✅ CI/CD integration with Git hooks
-- ✅ GitHub Actions workflow
-- ✅ Deployment validation suite
-- ✅ Emergency recovery procedures
-- ✅ Production monitoring integration
-
----
-
-## 🎯 Production Readiness Checklist
-
-- ✅ **Automated Deployment Pipeline** - Complete automation for all components
-- ✅ **Database Migration Procedures** - Automatic migration and schema updates
-- ✅ **Configuration Management** - Environment-specific configurations
-- ✅ **Service Management** - Graceful restart and health verification
-- ✅ **Zero-Downtime Deployment** - Blue-green deployment strategies
-- ✅ **Complete Rollback System** - Database, configuration, and service rollback
-- ✅ **Emergency Procedures** - Automated rollback triggers and manual procedures
-- ✅ **CI/CD Integration** - Git hooks and GitHub Actions
-- ✅ **Pre-deployment Validation** - Comprehensive validation suite
-- ✅ **Post-deployment Verification** - Health checks and monitoring
-- ✅ **Production Documentation** - Complete runbooks and emergency procedures
-- ✅ **Security Hardening** - Secure deployment practices
-- ✅ **Performance Monitoring** - Deployment metrics and reporting
-
-**🎉 100% Production Readiness Achieved!**
-
-The Gas Town MEOW Stack now has enterprise-grade deployment automation with comprehensive safety measures, monitoring integration, and emergency recovery procedures.
-
----
-
-*For technical support or deployment assistance, refer to the troubleshooting section or review the comprehensive logs generated by each deployment operation.*
+*For technical support, troubleshooting, or advanced configuration, refer to the Integration Guide and related documentation.*
