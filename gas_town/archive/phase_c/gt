@@ -1,0 +1,609 @@
+#!/usr/bin/env python3
+"""
+gt - Gas Town CLI Interface
+==========================
+
+The main command-line interface for Gas Town automation.
+Implements the core gt commands from Steve Yegge's Gas Town blog.
+
+Commands:
+- gt sling <agent> <work_type> <work_id> [options]  - Sling work to agent's hook
+- gt nudge <agent> [message]                        - Send notification to agent
+- gt seance <agent>                                 - Talk to agent's predecessor
+- gt handoff                                        - Graceful session restart
+- gt convoy <action> [args...]                      - Convoy management
+- gt hooks [agent]                                  - Hook system management
+- gt dashboard                                      - Launch real-time monitoring dashboard
+- gt tmux <action> [args...]                       - tmux integration and session management
+- gt status                                         - Show Gas Town system status
+"""
+
+import os
+import sys
+import json
+import subprocess
+import argparse
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+# Add our modules to the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from hook_system import (
+    GasTownHookSystem, WorkPriority, sling_work_cli,
+    check_hook_cli, hook_status_cli, list_hooks_cli, create_hook_cli
+)
+
+# Try to import convoy system
+try:
+    sys.path.insert(0, '/home/ubuntu/.claude')
+    from convoy_system import (
+        create_convoy_command, sling_work_command,
+        convoy_status_command, list_convoys_command
+    )
+    CONVOY_AVAILABLE = True
+except ImportError:
+    CONVOY_AVAILABLE = False
+
+
+class GasTownCLI:
+    """Main Gas Town CLI interface."""
+
+    def __init__(self):
+        self.hook_system = GasTownHookSystem()
+        self.gas_town_dir = Path.home() / ".gas_town"
+        self.gas_town_dir.mkdir(exist_ok=True)
+
+    def sling(self, args: argparse.Namespace) -> int:
+        """
+        Sling work to an agent's hook.
+
+        Usage: gt sling <agent> <work_type> <work_id> [options]
+        """
+        try:
+            result = sling_work_cli(
+                args.agent,
+                args.work_type,
+                args.work_id,
+                args.slung_by,
+                args.priority,
+                args.reason
+            )
+            print(result)
+
+            # If slinging a molecule, also create hook work
+            if args.work_type == "molecule" and args.auto_start:
+                self.nudge_agent(args.agent, f"New {args.work_type} work available: {args.work_id}")
+
+            return 0
+
+        except Exception as e:
+            print(f"❌ Sling failed: {str(e)}")
+            return 1
+
+    def nudge(self, args: argparse.Namespace) -> int:
+        """
+        Send notification to an agent via tmux.
+
+        Usage: gt nudge <agent> [message]
+        """
+        agent = args.agent
+        message = args.message or "Check your hook - new work available"
+
+        try:
+            # Find tmux session for agent
+            session_name = self.find_agent_session(agent)
+
+            if session_name:
+                # Send message via tmux
+                self.send_tmux_message(session_name, message)
+                print(f"📨 Nudged {agent} in session {session_name}")
+
+                # Log the nudge
+                self.log_nudge(agent, message, session_name)
+
+                return 0
+            else:
+                print(f"⚠️ No active tmux session found for {agent}")
+                print(f"💡 Try: tmux new-session -s {agent}")
+                return 1
+
+        except Exception as e:
+            print(f"❌ Nudge failed: {str(e)}")
+            return 1
+
+    def seance(self, args: argparse.Namespace) -> int:
+        """
+        Communicate with agent's predecessor session.
+
+        Usage: gt seance <agent>
+        """
+        agent = args.agent
+
+        try:
+            # Find predecessor session ID
+            predecessor_id = self.find_predecessor_session(agent)
+
+            if predecessor_id:
+                print(f"🔮 Starting seance with {agent}'s predecessor: {predecessor_id}")
+
+                # Use Claude Code /resume feature
+                resume_command = f"claude-code --resume {predecessor_id}"
+
+                # Create a temporary seance session
+                seance_session = f"seance-{agent}-{int(time.time())}"
+
+                subprocess.run([
+                    "tmux", "new-session", "-d", "-s", seance_session,
+                    "bash", "-c",
+                    f"echo 'Seance with {agent} predecessor: {predecessor_id}' && "
+                    f"{resume_command} && "
+                    "echo 'Seance complete. Press Enter to exit.' && read"
+                ])
+
+                print(f"📺 Seance session created: {seance_session}")
+                print(f"💡 Attach with: tmux attach -t {seance_session}")
+
+                return 0
+            else:
+                print(f"👻 No predecessor session found for {agent}")
+                print("💡 Make sure agent has session history in ~/.claude/sessions/")
+                return 1
+
+        except Exception as e:
+            print(f"❌ Seance failed: {str(e)}")
+            return 1
+
+    def handoff(self, args: argparse.Namespace) -> int:
+        """
+        Graceful session restart with work preservation.
+
+        Usage: gt handoff [--agent <agent>]
+        """
+        try:
+            current_session = os.environ.get("TMUX_SESSION") or "current-session"
+            agent_name = args.agent or self.detect_current_agent()
+
+            if not agent_name:
+                print("⚠️ Could not detect agent name. Use --agent <name>")
+                return 1
+
+            print(f"🔄 Initiating handoff for {agent_name}...")
+
+            # 1. Check for pending work on hook
+            pending_work = self.hook_system.check_hook(agent_name)
+
+            # 2. Save current session context
+            handoff_data = {
+                "agent_name": agent_name,
+                "session": current_session,
+                "timestamp": time.time(),
+                "pending_work": len(pending_work),
+                "handoff_reason": args.reason or "User initiated handoff"
+            }
+
+            handoff_file = self.gas_town_dir / f"handoff-{agent_name}.json"
+            with open(handoff_file, "w") as f:
+                json.dump(handoff_data, f, indent=2)
+
+            # 3. Notify other agents if needed
+            if args.notify:
+                self.broadcast_handoff(agent_name, handoff_data)
+
+            # 4. Prepare restart instructions
+            print(f"💾 Handoff context saved to {handoff_file}")
+            print(f"🪝 Pending work on hook: {len(pending_work)} items")
+
+            if pending_work:
+                print("📋 Pending work:")
+                for work in pending_work[:3]:  # Show first 3
+                    print(f"   • {work.work_type}:{work.work_reference} ({work.priority.value})")
+                if len(pending_work) > 3:
+                    print(f"   ... and {len(pending_work) - 3} more")
+
+            print(f"\n🔄 Ready for handoff. To restart:")
+            print(f"   tmux kill-session -t {current_session}")
+            print(f"   tmux new-session -s {agent_name}")
+            print(f"   # Agent will auto-detect hook work via GUPP")
+
+            return 0
+
+        except Exception as e:
+            print(f"❌ Handoff failed: {str(e)}")
+            return 1
+
+    def convoy(self, args: argparse.Namespace) -> int:
+        """
+        Convoy management commands.
+
+        Usage: gt convoy <action> [args...]
+        """
+        if not CONVOY_AVAILABLE:
+            print("❌ Convoy system not available. Check convoy_system.py installation.")
+            return 1
+
+        try:
+            action = args.action
+
+            if action == "create":
+                result = create_convoy_command(args.name, args.beads.split(","), args.description)
+                print(result)
+
+            elif action == "sling":
+                result = sling_work_command(args.convoy_id, args.bead_id, args.agent)
+                print(result)
+
+            elif action == "status":
+                result = convoy_status_command(args.convoy_id)
+                print(result)
+
+            elif action == "list":
+                result = list_convoys_command()
+                print(result)
+
+            else:
+                print(f"❌ Unknown convoy action: {action}")
+                return 1
+
+            return 0
+
+        except Exception as e:
+            print(f"❌ Convoy command failed: {str(e)}")
+            return 1
+
+    def hooks(self, args: argparse.Namespace) -> int:
+        """
+        Hook system management.
+
+        Usage: gt hooks [agent] [--action <action>]
+        """
+        try:
+            if args.agent:
+                if args.action == "create":
+                    result = create_hook_cli(args.agent)
+                    print(result)
+                elif args.action == "status":
+                    result = hook_status_cli(args.agent)
+                    print(result)
+                elif args.action == "check":
+                    result = check_hook_cli(args.agent)
+                    print(result)
+                else:
+                    # Default: show status
+                    result = hook_status_cli(args.agent)
+                    print(result)
+            else:
+                # No agent specified: list all hooks
+                result = list_hooks_cli()
+                print(result)
+
+            return 0
+
+        except Exception as e:
+            print(f"❌ Hook command failed: {str(e)}")
+            return 1
+
+    def status(self, args: argparse.Namespace) -> int:
+        """Show Gas Town system status."""
+        try:
+            print("🏭 GAS TOWN SYSTEM STATUS")
+            print("=" * 40)
+
+            # Hook system status
+            all_hooks = self.hook_system.list_all_hooks()
+            total_pending = sum(hook['pending_work'] for hook in all_hooks)
+
+            print(f"\n🪝 HOOK SYSTEM")
+            print(f"   Active hooks: {len(all_hooks)}")
+            print(f"   Pending work: {total_pending}")
+
+            # Convoy system status
+            if CONVOY_AVAILABLE:
+                convoy_result = list_convoys_command()
+                convoy_lines = convoy_result.split('\n')
+                convoy_count = len([line for line in convoy_lines if '🚧' in line or '✅' in line])
+
+                print(f"\n🚚 CONVOY SYSTEM")
+                print(f"   Active convoys: {convoy_count}")
+
+            # tmux sessions
+            try:
+                result = subprocess.run(["tmux", "list-sessions"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    sessions = result.stdout.strip().split('\n') if result.stdout.strip() else []
+                    agent_sessions = [s for s in sessions if any(role in s.lower() for role in
+                                    ['mayor', 'witness', 'refinery', 'deacon', 'crew', 'polecat'])]
+
+                    print(f"\n📺 TMUX SESSIONS")
+                    print(f"   Total sessions: {len(sessions)}")
+                    print(f"   Agent sessions: {len(agent_sessions)}")
+
+            except FileNotFoundError:
+                print(f"\n📺 TMUX SESSIONS")
+                print("   tmux not available")
+
+            return 0
+
+        except Exception as e:
+            print(f"❌ Status command failed: {str(e)}")
+            return 1
+
+    def dashboard(self, args: argparse.Namespace) -> int:
+        """Launch the real-time Gas Town dashboard."""
+        try:
+            dashboard_script = Path(__file__).parent / "gas_town_dashboard.py"
+
+            if not dashboard_script.exists():
+                print("❌ Dashboard not found. Expected at gas_town_dashboard.py")
+                return 1
+
+            print("🚀 Launching Gas Town real-time dashboard...")
+            print("💡 Press Ctrl-C to exit dashboard")
+
+            # Launch dashboard
+            result = subprocess.run([
+                "python3", str(dashboard_script)
+            ])
+
+            return result.returncode
+
+        except KeyboardInterrupt:
+            print("\n👋 Dashboard stopped.")
+            return 0
+        except Exception as e:
+            print(f"❌ Dashboard launch failed: {str(e)}")
+            return 1
+
+    def tmux(self, args: argparse.Namespace) -> int:
+        """tmux integration commands."""
+        try:
+            tmux_script = Path(__file__).parent / "gas_town_tmux.py"
+
+            if not tmux_script.exists():
+                print("❌ tmux integration not found. Expected at gas_town_tmux.py")
+                return 1
+
+            # Build command arguments
+            cmd_args = ["python3", str(tmux_script), args.tmux_command]
+
+            if hasattr(args, 'tmux_target') and args.tmux_target:
+                cmd_args.append(args.tmux_target)
+
+            if hasattr(args, 'role') and args.role:
+                cmd_args.extend(["--role", args.role])
+
+            # Execute tmux command
+            result = subprocess.run(cmd_args)
+            return result.returncode
+
+        except Exception as e:
+            print(f"❌ tmux command failed: {str(e)}")
+            return 1
+
+    # Helper methods
+
+    def nudge_agent(self, agent: str, message: str) -> None:
+        """Send a nudge to an agent."""
+        try:
+            session = self.find_agent_session(agent)
+            if session:
+                self.send_tmux_message(session, message)
+        except Exception:
+            pass  # Silent failure for auto-nudging
+
+    def find_agent_session(self, agent: str) -> Optional[str]:
+        """Find active tmux session for agent."""
+        try:
+            result = subprocess.run(["tmux", "list-sessions"], capture_output=True, text=True)
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    if agent.lower() in line.lower():
+                        session_name = line.split(':')[0]
+                        return session_name
+        except FileNotFoundError:
+            pass
+        return None
+
+    def send_tmux_message(self, session: str, message: str) -> None:
+        """Send message to tmux session."""
+        # Send the message as keystrokes to the session
+        subprocess.run([
+            "tmux", "send-keys", "-t", session,
+            f"echo '📨 Gas Town Nudge: {message}'", "Enter"
+        ])
+
+        # Also send a special marker that agents can detect
+        subprocess.run([
+            "tmux", "send-keys", "-t", session,
+            f"# GUPP-NUDGE: {message}", "Enter"
+        ])
+
+    def find_predecessor_session(self, agent: str) -> Optional[str]:
+        """Find predecessor session ID for seance."""
+        sessions_dir = Path.home() / ".claude" / "sessions"
+        if not sessions_dir.exists():
+            return None
+
+        # Look for recent sessions containing the agent name
+        session_files = list(sessions_dir.glob("*.jsonl"))
+        session_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+
+        for session_file in session_files[:10]:  # Check last 10 sessions
+            try:
+                with open(session_file) as f:
+                    content = f.read()
+                    if agent.lower() in content.lower():
+                        # Extract session ID from filename
+                        session_id = session_file.stem
+                        return session_id
+            except Exception:
+                continue
+
+        return None
+
+    def detect_current_agent(self) -> Optional[str]:
+        """Try to detect current agent from environment/session."""
+        # Try environment variable first
+        agent = os.environ.get("AGENT_NAME")
+        if agent:
+            return agent
+
+        # Try tmux session name
+        session = os.environ.get("TMUX_SESSION")
+        if session and any(role in session.lower() for role in ['mayor', 'witness', 'refinery']):
+            return session
+
+        # Try current directory
+        cwd = os.getcwd()
+        if 'gas_town' in cwd:
+            return "gas_town_agent"
+
+        return None
+
+    def log_nudge(self, agent: str, message: str, session: str) -> None:
+        """Log nudge for debugging."""
+        log_file = self.gas_town_dir / "nudge.log"
+        with open(log_file, "a") as f:
+            f.write(f"{time.time()},{agent},{session},{message}\n")
+
+    def broadcast_handoff(self, agent: str, handoff_data: Dict[str, Any]) -> None:
+        """Broadcast handoff notification to other agents."""
+        # Find other active agents
+        all_hooks = self.hook_system.list_all_hooks()
+        other_agents = [h['agent_name'] for h in all_hooks if h['agent_name'] != agent]
+
+        for other_agent in other_agents:
+            try:
+                self.nudge_agent(other_agent, f"{agent} is handing off - {handoff_data['handoff_reason']}")
+            except Exception:
+                pass
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Create the argument parser for gt commands."""
+    parser = argparse.ArgumentParser(
+        prog="gt",
+        description="Gas Town CLI - Multi-agent orchestration interface"
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # gt sling
+    sling_parser = subparsers.add_parser("sling", help="Sling work to agent's hook")
+    sling_parser.add_argument("agent", help="Target agent name")
+    sling_parser.add_argument("work_type", help="Type of work (molecule, bead, convoy, task)")
+    sling_parser.add_argument("work_id", help="Work item ID")
+    sling_parser.add_argument("--slung-by", default="CLI", help="Who is slinging the work")
+    sling_parser.add_argument("--priority", default="normal",
+                             choices=["low", "normal", "high", "urgent"], help="Work priority")
+    sling_parser.add_argument("--reason", help="Reason for slinging this work")
+    sling_parser.add_argument("--auto-start", action="store_true",
+                             help="Automatically nudge agent after slinging")
+
+    # gt nudge
+    nudge_parser = subparsers.add_parser("nudge", help="Send notification to agent")
+    nudge_parser.add_argument("agent", help="Target agent name")
+    nudge_parser.add_argument("message", nargs="?", help="Message to send")
+
+    # gt seance
+    seance_parser = subparsers.add_parser("seance", help="Talk to agent's predecessor")
+    seance_parser.add_argument("agent", help="Agent name")
+
+    # gt handoff
+    handoff_parser = subparsers.add_parser("handoff", help="Graceful session restart")
+    handoff_parser.add_argument("--agent", help="Agent name (auto-detect if not provided)")
+    handoff_parser.add_argument("--reason", help="Reason for handoff")
+    handoff_parser.add_argument("--notify", action="store_true",
+                               help="Notify other agents about handoff")
+
+    # gt convoy
+    convoy_parser = subparsers.add_parser("convoy", help="Convoy management")
+    convoy_subparsers = convoy_parser.add_subparsers(dest="action", help="Convoy actions")
+
+    convoy_create = convoy_subparsers.add_parser("create", help="Create convoy")
+    convoy_create.add_argument("name", help="Convoy name")
+    convoy_create.add_argument("beads", help="Comma-separated bead IDs")
+    convoy_create.add_argument("--description", default="", help="Convoy description")
+
+    convoy_sling = convoy_subparsers.add_parser("sling", help="Sling convoy work")
+    convoy_sling.add_argument("convoy_id", help="Convoy ID")
+    convoy_sling.add_argument("bead_id", help="Bead ID")
+    convoy_sling.add_argument("agent", help="Target agent")
+
+    convoy_status = convoy_subparsers.add_parser("status", help="Convoy status")
+    convoy_status.add_argument("convoy_id", help="Convoy ID")
+
+    convoy_subparsers.add_parser("list", help="List convoys")
+
+    # gt hooks
+    hooks_parser = subparsers.add_parser("hooks", help="Hook management")
+    hooks_parser.add_argument("agent", nargs="?", help="Agent name (optional)")
+    hooks_parser.add_argument("--action", choices=["create", "status", "check"],
+                             help="Hook action")
+
+    # gt status
+    subparsers.add_parser("status", help="Show Gas Town system status")
+
+    # gt dashboard
+    subparsers.add_parser("dashboard", help="Launch real-time Gas Town dashboard")
+
+    # gt tmux
+    tmux_parser = subparsers.add_parser("tmux", help="tmux integration commands")
+    tmux_subparsers = tmux_parser.add_subparsers(dest="tmux_command", help="tmux actions")
+
+    tmux_subparsers.add_parser("setup", help="Setup Gas Town tmux configuration")
+    tmux_subparsers.add_parser("discover", help="Discover active agent sessions")
+
+    tmux_spawn = tmux_subparsers.add_parser("spawn", help="Spawn new agent session")
+    tmux_spawn.add_argument("tmux_target", nargs="?", help="Agent role to spawn")
+    tmux_spawn.add_argument("--role", choices=["Mayor", "Witness", "Refinery", "Deacon", "Crew", "Polecat", "Agent"], default="Agent")
+
+    tmux_attach = tmux_subparsers.add_parser("attach", help="Attach to agent session")
+    tmux_attach.add_argument("tmux_target", help="Session name to attach to")
+
+    tmux_kill = tmux_subparsers.add_parser("kill", help="Kill agent session")
+    tmux_kill.add_argument("tmux_target", help="Session name to kill")
+
+    tmux_subparsers.add_parser("integrate", help="Show tmux integration help")
+
+    return parser
+
+
+def main():
+    """Main CLI entry point."""
+    parser = create_parser()
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    cli = GasTownCLI()
+
+    # Route to appropriate command handler
+    if args.command == "sling":
+        return cli.sling(args)
+    elif args.command == "nudge":
+        return cli.nudge(args)
+    elif args.command == "seance":
+        return cli.seance(args)
+    elif args.command == "handoff":
+        return cli.handoff(args)
+    elif args.command == "convoy":
+        return cli.convoy(args)
+    elif args.command == "hooks":
+        return cli.hooks(args)
+    elif args.command == "status":
+        return cli.status(args)
+    elif args.command == "dashboard":
+        return cli.dashboard(args)
+    elif args.command == "tmux":
+        return cli.tmux(args)
+    else:
+        print(f"❌ Unknown command: {args.command}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

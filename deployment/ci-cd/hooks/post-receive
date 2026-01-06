@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# Gas Town MEOW Stack - Post-receive Git Hook
+# Triggers automated deployment after successful push
+# Version: 1.0.0
+
+set -euo pipefail
+
+# Configuration
+PROJECT_ROOT="$(cd "$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")" && pwd)"
+LOG_FILE="${PROJECT_ROOT}/deployment/logs/git_hook_$(date +%Y%m%d_%H%M%S).log"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    local level=$1
+    shift
+    local message="$*"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "${timestamp} [${level}] ${message}" | tee -a "$LOG_FILE"
+}
+
+info() {
+    log "INFO" "${BLUE}$*${NC}"
+}
+
+warn() {
+    log "WARN" "${YELLOW}$*${NC}"
+}
+
+error() {
+    log "ERROR" "${RED}$*${NC}"
+}
+
+success() {
+    log "SUCCESS" "${GREEN}$*${NC}"
+}
+
+# Initialize logging
+mkdir -p "$(dirname "$LOG_FILE")"
+
+info "🚀 Git post-receive hook starting deployment automation..."
+
+# Read stdin for ref updates
+while read oldrev newrev refname; do
+    branch_name=$(echo "$refname" | sed 's/refs\/heads\///')
+    
+    info "Processing deployment for branch: $branch_name"
+    info "New commit: ${newrev:0:8}"
+    
+    # Determine deployment strategy based on branch
+    case "$branch_name" in
+        "main"|"master")
+            info "🔴 Production deployment triggered"
+            deployment_env="production"
+            deployment_strategy="blue_green"
+            ;;
+        "staging"|"release")
+            info "🟡 Staging deployment triggered"
+            deployment_env="staging"
+            deployment_strategy="standard"
+            ;;
+        "development"|"dev")
+            info "🟢 Development deployment triggered"
+            deployment_env="development"
+            deployment_strategy="standard"
+            ;;
+        *)
+            info "ℹ️  No deployment configured for branch: $branch_name"
+            continue
+            ;;
+    esac
+    
+    # Update working directory
+    cd "$PROJECT_ROOT"
+    git --git-dir="$PROJECT_ROOT/.git" --work-tree="$PROJECT_ROOT" checkout -f "$branch_name"
+    
+    # Create deployment lock to prevent concurrent deployments
+    lock_file="/tmp/meow_deployment.lock"
+    if [ -f "$lock_file" ]; then
+        error "Deployment already in progress (lock file exists)"
+        continue
+    fi
+    
+    echo "$$" > "$lock_file"
+    trap "rm -f '$lock_file'" EXIT
+    
+    # Run pre-deployment checks
+    info "Running pre-deployment checks..."
+    
+    # Validate environment
+    if [ -x "${PROJECT_ROOT}/deployment/scripts/deploy/deploy_meow_stack.sh" ]; then
+        if ! bash "${PROJECT_ROOT}/deployment/scripts/deploy/deploy_meow_stack.sh" --validate-only; then
+            error "Pre-deployment validation failed"
+            rm -f "$lock_file"
+            continue
+        fi
+    fi
+    
+    # Execute deployment based on strategy
+    case "$deployment_strategy" in
+        "blue_green")
+            info "🔄 Executing blue-green deployment..."
+            if [ -x "${PROJECT_ROOT}/deployment/scripts/zero-downtime/blue_green_deploy.sh" ]; then
+                if bash "${PROJECT_ROOT}/deployment/scripts/zero-downtime/blue_green_deploy.sh"; then
+                    success "✅ Blue-green deployment completed successfully"
+                else
+                    error "❌ Blue-green deployment failed"
+                    
+                    # Send alert notification
+                    cat > "/tmp/deployment_alert.json" << ALERT_EOF
+{
+    "alert": "deployment_failed",
+    "branch": "$branch_name",
+    "commit": "$newrev",
+    "environment": "$deployment_env",
+    "strategy": "$deployment_strategy",
+    "timestamp": "$(date -Iseconds)"
+}
+ALERT_EOF
+                fi
+            else
+                error "Blue-green deployment script not found"
+            fi
+            ;;
+        "standard")
+            info "📦 Executing standard deployment..."
+            if [ -x "${PROJECT_ROOT}/deployment/scripts/deploy/deploy_meow_stack.sh" ]; then
+                ENVIRONMENT="$deployment_env" \
+                bash "${PROJECT_ROOT}/deployment/scripts/deploy/deploy_meow_stack.sh"
+                
+                if [ $? -eq 0 ]; then
+                    success "✅ Standard deployment completed successfully"
+                else
+                    error "❌ Standard deployment failed"
+                fi
+            else
+                error "Standard deployment script not found"
+            fi
+            ;;
+    esac
+    
+    # Post-deployment health check
+    info "Running post-deployment health check..."
+    sleep 10
+    
+    if [ -x "${PROJECT_ROOT}/monitoring/scripts/health_check.sh" ]; then
+        cd "${PROJECT_ROOT}/monitoring"
+        if bash scripts/health_check.sh; then
+            success "✅ Post-deployment health check passed"
+        else
+            warn "⚠️  Post-deployment health check failed"
+            
+            # Consider automatic rollback for production
+            if [ "$deployment_env" = "production" ]; then
+                warn "Considering automatic rollback for production environment"
+                if [ -x "${PROJECT_ROOT}/deployment/scripts/rollback/rollback_meow_stack.sh" ]; then
+                    bash "${PROJECT_ROOT}/deployment/scripts/rollback/rollback_meow_stack.sh" --force
+                fi
+            fi
+        fi
+    fi
+    
+    # Create deployment record
+    cat > "${PROJECT_ROOT}/deployment/logs/deployment_record_$(date +%Y%m%d_%H%M%S).json" << RECORD_EOF
+{
+    "deployment_timestamp": "$(date -Iseconds)",
+    "trigger": "git_push",
+    "branch": "$branch_name",
+    "commit": "$newrev",
+    "environment": "$deployment_env",
+    "strategy": "$deployment_strategy",
+    "deployment_successful": true
+}
+RECORD_EOF
+    
+    # Cleanup deployment lock
+    rm -f "$lock_file"
+    
+    success "🎉 Deployment automation completed for $branch_name"
+done
+
+info "Git post-receive hook completed"

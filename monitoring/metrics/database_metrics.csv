@@ -1,0 +1,9 @@
+database,table_count,size_mb,response_time_ms,timestamp
+db_beads,15,.49,3,2026-01-04 03:54:12
+db_agent_mail,23,.46,2,2026-01-04 03:54:12
+db_beads,15,.49,2,2026-01-04 03:54:22
+db_agent_mail,23,.46,2,2026-01-04 03:54:22
+db_beads,15,.49,2,2026-01-04 03:55:23
+db_agent_mail,23,.46,2,2026-01-04 03:55:23
+db_beads,15,.49,3,2026-01-04 03:55:29
+db_agent_mail,23,.46,2,2026-01-04 03:55:29

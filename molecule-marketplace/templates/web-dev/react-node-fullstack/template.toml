@@ -1,0 +1,799 @@
+# React + Node.js Full-Stack Web Application Template
+# MEOW Stack Workflow Template
+
+[metadata]
+name = "react-node-fullstack"
+title = "React + Node.js Full-Stack Application"
+description = "Complete full-stack web application with React frontend, Node.js/Express backend, and PostgreSQL database"
+category = "web-dev"
+tech_stack = "react-node"
+version = "1.0.0"
+author = "Gas Town MEOW Stack"
+tags = ["react", "nodejs", "express", "postgresql", "fullstack", "typescript"]
+difficulty = "intermediate"
+estimated_time = 45
+requirements = ["Node.js 18+", "npm or yarn", "PostgreSQL", "Git"]
+
+[variables.project_name]
+type = "string"
+description = "Name of your project"
+required = true
+pattern = "^[a-z0-9-]+$"
+
+[variables.project_title]
+type = "string"
+description = "Human-readable project title"
+required = true
+
+[variables.database_name]
+type = "string"
+description = "PostgreSQL database name"
+required = true
+default = "{{snake_case(project_name)}}_db"
+
+[variables.api_port]
+type = "integer"
+description = "API server port"
+default = 3001
+
+[variables.frontend_port]
+type = "integer"
+description = "Frontend development server port"
+default = 3000
+
+[variables.use_typescript]
+type = "boolean"
+description = "Use TypeScript for both frontend and backend"
+default = true
+
+[variables.include_auth]
+type = "boolean"
+description = "Include JWT authentication system"
+default = true
+
+[variables.include_testing]
+type = "boolean"
+description = "Include testing setup (Jest, React Testing Library, Supertest)"
+default = true
+
+# MEOW Workflow Definition
+[workflow]
+name = "{{project_name}}-setup"
+description = "Full-stack application setup and development workflow"
+
+# Track 1: Project Setup
+[workflow.steps.init_project]
+type = "shell"
+description = "Initialize project structure and Git repository"
+command = """
+mkdir -p {{project_name}}/{frontend,backend,database,docs}
+cd {{project_name}}
+git init
+echo "# {{project_title}}" > README.md
+"""
+tags = ["setup"]
+
+[workflow.steps.setup_gitignore]
+type = "file"
+description = "Create .gitignore file"
+path = ".gitignore"
+content = """
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+/build
+/dist
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs
+*.log
+"""
+tags = ["setup"]
+
+# Track 2: Backend Setup
+[workflow.steps.init_backend]
+type = "shell"
+description = "Initialize Node.js backend with Express"
+command = """
+cd {{project_name}}/backend
+npm init -y
+{% if use_typescript %}
+npm install express cors helmet morgan dotenv bcryptjs jsonwebtoken
+npm install -D typescript @types/node @types/express @types/cors @types/bcryptjs @types/jsonwebtoken nodemon ts-node
+{% else %}
+npm install express cors helmet morgan dotenv bcryptjs jsonwebtoken
+npm install -D nodemon
+{% endif %}
+{% if include_testing %}
+npm install -D jest supertest @types/jest @types/supertest
+{% endif %}
+"""
+depends_on = ["init_project"]
+tags = ["backend"]
+
+[workflow.steps.backend_config]
+type = "file"
+description = "Create backend configuration files"
+path = "backend/package.json"
+content = """
+{
+  "name": "{{project_name}}-backend",
+  "version": "1.0.0",
+  "description": "Backend API for {{project_title}}",
+  "main": "{% if use_typescript %}dist/app.js{% else %}src/app.js{% endif %}",
+  "scripts": {
+    {% if use_typescript %}
+    "dev": "nodemon src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "test": "jest"
+    {% else %}
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js",
+    "test": "jest"
+    {% endif %}
+  },
+  "keywords": ["express", "api", "{{project_name}}"],
+  "author": "Your Name",
+  "license": "MIT"
+}
+"""
+depends_on = ["init_backend"]
+tags = ["backend"]
+
+{% if use_typescript %}
+[workflow.steps.backend_typescript]
+type = "file"
+description = "Configure TypeScript for backend"
+path = "backend/tsconfig.json"
+content = """
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
+"""
+depends_on = ["backend_config"]
+tags = ["backend"]
+{% endif %}
+
+# Track 3: Frontend Setup
+[workflow.steps.init_frontend]
+type = "shell"
+description = "Initialize React frontend"
+command = """
+cd {{project_name}}/frontend
+{% if use_typescript %}
+npx create-react-app . --template typescript
+{% else %}
+npx create-react-app .
+{% endif %}
+npm install axios react-router-dom
+{% if include_auth %}
+npm install @types/react-router-dom
+{% endif %}
+{% if include_testing %}
+npm install -D @testing-library/jest-dom @testing-library/react @testing-library/user-event
+{% endif %}
+"""
+depends_on = ["init_project"]
+tags = ["frontend"]
+
+[workflow.steps.frontend_config]
+type = "file"
+description = "Configure frontend development server"
+path = "frontend/.env.development"
+content = """
+REACT_APP_API_URL=http://localhost:{{api_port}}
+PORT={{frontend_port}}
+"""
+depends_on = ["init_frontend"]
+tags = ["frontend"]
+
+# Track 4: Database Setup
+[workflow.steps.database_setup]
+type = "file"
+description = "Create database migration and seed files"
+path = "database/init.sql"
+content = """
+-- {{project_title}} Database Schema
+CREATE DATABASE {{database_name}};
+
+\c {{database_name}};
+
+-- Users table for authentication
+{% if include_auth %}
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_users_email ON users(email);
+{% endif %}
+
+-- Example application table
+CREATE TABLE items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    {% if include_auth %}user_id INTEGER REFERENCES users(id),{% endif %}
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+tags = ["database"]
+
+# Track 5: API Implementation
+[workflow.steps.backend_app]
+type = "file"
+description = "Create main Express application"
+path = "backend/src/app.{% if use_typescript %}ts{% else %}js{% endif %}"
+content = """
+{% if use_typescript %}
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import dotenv from 'dotenv';
+{% else %}
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const dotenv = require('dotenv');
+{% endif %}
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || {{api_port}};
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(morgan('combined'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: '{{project_title}} API is running' });
+});
+
+{% if include_auth %}
+// Auth routes
+app.post('/api/auth/login', (req, res) => {
+    // TODO: Implement login logic
+    res.json({ message: 'Login endpoint - implement authentication' });
+});
+
+app.post('/api/auth/register', (req, res) => {
+    // TODO: Implement registration logic
+    res.json({ message: 'Register endpoint - implement registration' });
+});
+{% endif %}
+
+// Example API routes
+app.get('/api/items', (req, res) => {
+    // TODO: Implement items retrieval
+    res.json({ items: [] });
+});
+
+app.post('/api/items', (req, res) => {
+    // TODO: Implement item creation
+    res.json({ message: 'Item created - implement item creation' });
+});
+
+// Error handling middleware
+app.use((err{% if use_typescript %}: Error{% endif %}, req{% if use_typescript %}: express.Request{% endif %}, res{% if use_typescript %}: express.Response{% endif %}, next{% if use_typescript %}: express.NextFunction{% endif %}) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
+
+app.listen(PORT, () => {
+    console.log(`🚀 {{project_title}} API server running on port ${PORT}`);
+});
+
+{% if use_typescript %}
+export default app;
+{% else %}
+module.exports = app;
+{% endif %}
+"""
+depends_on = ["backend_config"]
+tags = ["backend", "api"]
+
+# Track 6: Frontend Implementation
+[workflow.steps.frontend_app]
+type = "file"
+description = "Create main React application component"
+path = "frontend/src/App.{% if use_typescript %}tsx{% else %}js{% endif %}"
+content = """
+{% if use_typescript %}
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './App.css';
+
+interface ApiResponse {
+    status: string;
+    message: string;
+}
+{% else %}
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './App.css';
+{% endif %}
+
+function App() {
+    const [apiStatus, setApiStatus] = useState{% if use_typescript %}<string>{% endif %}('Checking...');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const checkApiHealth = async () => {
+            try {
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/health`);
+                setApiStatus(response.data.message);
+            } catch (error) {
+                setApiStatus('API connection failed');
+                console.error('API health check failed:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkApiHealth();
+    }, []);
+
+    return (
+        <div className="App">
+            <header className="App-header">
+                <h1>{{project_title}}</h1>
+                <div className="api-status">
+                    <h3>API Status:</h3>
+                    <p className={loading ? 'loading' : apiStatus.includes('failed') ? 'error' : 'success'}>
+                        {apiStatus}
+                    </p>
+                </div>
+
+                <div className="quick-start">
+                    <h3>Quick Start:</h3>
+                    <ol>
+                        <li>Set up your PostgreSQL database</li>
+                        <li>Configure environment variables</li>
+                        <li>Run database migrations</li>
+                        <li>Start implementing your features!</li>
+                    </ol>
+                </div>
+
+                <div className="next-steps">
+                    <h3>Next Steps:</h3>
+                    <ul>
+                        {% if include_auth %}<li>Implement authentication system</li>{% endif %}
+                        <li>Add your business logic to the API</li>
+                        <li>Build your React components</li>
+                        <li>Set up routing with React Router</li>
+                        {% if include_testing %}<li>Write tests for your components and API</li>{% endif %}
+                        <li>Deploy to your favorite hosting platform</li>
+                    </ul>
+                </div>
+            </header>
+        </div>
+    );
+}
+
+export default App;
+"""
+depends_on = ["frontend_config"]
+tags = ["frontend"]
+
+{% if include_testing %}
+# Track 7: Testing Setup
+[workflow.steps.backend_tests]
+type = "file"
+description = "Create backend API tests"
+path = "backend/src/app.test.{% if use_typescript %}ts{% else %}js{% endif %}"
+content = """
+{% if use_typescript %}
+import request from 'supertest';
+import app from './app';
+{% else %}
+const request = require('supertest');
+const app = require('./app');
+{% endif %}
+
+describe('API Health Check', () => {
+    it('should return OK status', async () => {
+        const response = await request(app)
+            .get('/api/health')
+            .expect(200);
+
+        expect(response.body.status).toBe('OK');
+        expect(response.body.message).toContain('{{project_title}}');
+    });
+});
+
+{% if include_auth %}
+describe('Authentication Endpoints', () => {
+    it('should have login endpoint', async () => {
+        const response = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'test@example.com', password: 'password' })
+            .expect(200);
+
+        expect(response.body.message).toContain('Login');
+    });
+
+    it('should have register endpoint', async () => {
+        const response = await request(app)
+            .post('/api/auth/register')
+            .send({ email: 'test@example.com', password: 'password' })
+            .expect(200);
+
+        expect(response.body.message).toContain('Register');
+    });
+});
+{% endif %}
+"""
+depends_on = ["backend_app"]
+tags = ["testing", "backend"]
+
+[workflow.steps.frontend_tests]
+type = "file"
+description = "Create frontend component tests"
+path = "frontend/src/App.test.{% if use_typescript %}tsx{% else %}js{% endif %}"
+content = """
+{% if use_typescript %}
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import App from './App';
+
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+{% else %}
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import axios from 'axios';
+import App from './App';
+
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios;
+{% endif %}
+
+describe('App Component', () => {
+    beforeEach(() => {
+        mockedAxios.get.mockReset();
+    });
+
+    it('renders project title', () => {
+        render(<App />);
+        const titleElement = screen.getByText(/{{project_title}}/i);
+        expect(titleElement).toBeInTheDocument();
+    });
+
+    it('shows API status on successful connection', async () => {
+        mockedAxios.get.mockResolvedValueOnce({
+            data: { status: 'OK', message: '{{project_title}} API is running' }
+        });
+
+        render(<App />);
+
+        await waitFor(() => {
+            expect(screen.getByText(/{{project_title}} API is running/i)).toBeInTheDocument();
+        });
+    });
+
+    it('shows error status on failed connection', async () => {
+        mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+
+        render(<App />);
+
+        await waitFor(() => {
+            expect(screen.getByText(/API connection failed/i)).toBeInTheDocument();
+        });
+    });
+});
+"""
+depends_on = ["frontend_app"]
+tags = ["testing", "frontend"]
+{% endif %}
+
+# Track 8: Documentation and Development Environment
+[workflow.steps.create_readme]
+type = "file"
+description = "Create comprehensive project README"
+path = "README.md"
+content = """
+# {{project_title}}
+
+{{description if description else "A full-stack web application built with React and Node.js"}}
+
+## 🚀 Tech Stack
+
+- **Frontend**: React{% if use_typescript %} with TypeScript{% endif %}
+- **Backend**: Node.js with Express
+- **Database**: PostgreSQL
+- **Authentication**: {% if include_auth %}JWT-based{% else %}Not implemented{% endif %}
+- **Testing**: {% if include_testing %}Jest, React Testing Library, Supertest{% else %}Not configured{% endif %}
+
+## 📋 Prerequisites
+
+- Node.js 18 or higher
+- npm or yarn
+- PostgreSQL
+- Git
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+   \`\`\`bash
+   git clone <your-repo-url>
+   cd {{project_name}}
+   \`\`\`
+
+2. **Install dependencies**
+   \`\`\`bash
+   # Install backend dependencies
+   cd backend
+   npm install
+
+   # Install frontend dependencies
+   cd ../frontend
+   npm install
+   \`\`\`
+
+3. **Set up environment variables**
+   \`\`\`bash
+   # Backend environment
+   cd backend
+   cp .env.example .env
+   # Edit .env with your database credentials
+   \`\`\`
+
+4. **Set up database**
+   \`\`\`bash
+   # Create database and run migrations
+   createdb {{database_name}}
+   psql {{database_name}} < database/init.sql
+   \`\`\`
+
+## 🏃‍♂️ Running the Application
+
+1. **Start the backend server**
+   \`\`\`bash
+   cd backend
+   npm run dev
+   \`\`\`
+   The API will be available at http://localhost:{{api_port}}
+
+2. **Start the frontend development server**
+   \`\`\`bash
+   cd frontend
+   npm start
+   \`\`\`
+   The app will be available at http://localhost:{{frontend_port}}
+
+## 🧪 Testing
+
+{% if include_testing %}
+\`\`\`bash
+# Run backend tests
+cd backend
+npm test
+
+# Run frontend tests
+cd frontend
+npm test
+\`\`\`
+{% else %}
+Testing is not configured in this template. Consider adding Jest and testing libraries.
+{% endif %}
+
+## 📁 Project Structure
+
+\`\`\`
+{{project_name}}/
+├── backend/                 # Express.js API server
+│   ├── src/
+│   │   ├── app.{% if use_typescript %}ts{% else %}js{% endif %}            # Main application file
+│   │   └── ...
+│   ├── package.json
+│   {% if use_typescript %}├── tsconfig.json{% endif %}
+│   └── .env.example
+├── frontend/                # React application
+│   ├── src/
+│   │   ├── App.{% if use_typescript %}tsx{% else %}js{% endif %}           # Main React component
+│   │   └── ...
+│   ├── package.json
+│   └── .env.development
+├── database/               # Database schema and migrations
+│   └── init.sql
+├── docs/                   # Documentation
+└── README.md
+\`\`\`
+
+## 🔧 Configuration
+
+### Environment Variables
+
+**Backend (.env)**
+\`\`\`
+PORT={{api_port}}
+DATABASE_URL=postgresql://username:password@localhost/{{database_name}}
+{% if include_auth %}JWT_SECRET=your-secret-key{% endif %}
+NODE_ENV=development
+\`\`\`
+
+**Frontend (.env.development)**
+\`\`\`
+REACT_APP_API_URL=http://localhost:{{api_port}}
+PORT={{frontend_port}}
+\`\`\`
+
+## 🚀 Deployment
+
+### Production Build
+
+1. **Build frontend**
+   \`\`\`bash
+   cd frontend
+   npm run build
+   \`\`\`
+
+2. **Build backend** {% if use_typescript %}(TypeScript){% endif %}
+   \`\`\`bash
+   cd backend
+   {% if use_typescript %}npm run build{% endif %}
+   \`\`\`
+
+### Deployment Options
+
+- **Vercel/Netlify**: For frontend
+- **Heroku/Railway**: For full-stack deployment
+- **Docker**: Use the provided Dockerfile
+- **AWS/GCP/Azure**: Cloud hosting platforms
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (\`git checkout -b feature/amazing-feature\`)
+3. Commit your changes (\`git commit -m 'Add amazing feature'\`)
+4. Push to the branch (\`git push origin feature/amazing-feature\`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🛠️ Built with Gas Town MEOW Stack
+
+This project was scaffolded using the Gas Town MEOW Stack molecule marketplace templates.
+Learn more at: [Gas Town MEOW Stack Documentation](https://github.com/your-org/meow-stack)
+"""
+depends_on = ["init_project"]
+tags = ["documentation"]
+
+[workflow.steps.docker_setup]
+type = "file"
+description = "Create Docker configuration for development and production"
+path = "docker-compose.yml"
+content = """
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: {{database_name}}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "{{api_port}}:{{api_port}}"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/{{database_name}}
+      - PORT={{api_port}}
+    depends_on:
+      - database
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "{{frontend_port}}:{{frontend_port}}"
+    environment:
+      - REACT_APP_API_URL=http://localhost:{{api_port}}
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+"""
+tags = ["docker", "deployment"]
+
+# Final step: Summary and next steps
+[workflow.steps.project_complete]
+type = "shell"
+description = "Project setup complete - display summary"
+command = """
+echo "🎉 {{project_title}} setup complete!"
+echo ""
+echo "📊 Project Summary:"
+echo "  • Frontend: React{% if use_typescript %} + TypeScript{% endif %} on port {{frontend_port}}"
+echo "  • Backend: Node.js + Express on port {{api_port}}"
+echo "  • Database: PostgreSQL ({{database_name}})"
+{% if include_auth %}echo "  • Authentication: JWT-based (needs implementation)"{% endif %}
+{% if include_testing %}echo "  • Testing: Jest + React Testing Library + Supertest"{% endif %}
+echo ""
+echo "🚀 Next Steps:"
+echo "  1. cd {{project_name}}"
+echo "  2. Set up your PostgreSQL database"
+echo "  3. Configure environment variables"
+echo "  4. Run 'npm install' in both backend and frontend directories"
+echo "  5. Start development servers:"
+echo "     • Backend: cd backend && npm run dev"
+echo "     • Frontend: cd frontend && npm start"
+echo ""
+echo "📖 Documentation: See README.md for detailed instructions"
+echo "🛠️  Generated with Gas Town MEOW Stack"
+"""
+depends_on = ["create_readme", "docker_setup"]
+tags = ["summary"]

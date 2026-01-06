@@ -1,0 +1,5 @@
+component,cpu_percent,memory_percent,disk_percent,load_avg,timestamp
+system,1.5,2.4,28,0.36,2026-01-04 03:54:17
+system,1.1,2.4,28,0.62,2026-01-04 03:54:28
+system,2.1,2.4,28,0.38,2026-01-04 03:55:29
+system,1.1,2.4,28,0.35,2026-01-04 03:55:34

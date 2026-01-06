@@ -1,0 +1,338 @@
+# Gas Town MEOW Stack - Alert Rules Configuration
+# Production-grade alerting rules for comprehensive monitoring
+
+# Alert rule groups
+alert_groups:
+
+  # Critical System Alerts
+  system_critical:
+    rules:
+      - alert: HighCPUUsage
+        expr: cpu_usage_percent > 90
+        for: 2m
+        severity: critical
+        summary: "High CPU usage detected"
+        description: "CPU usage is above 90% for more than 2 minutes. Current: {{ $value }}%"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/high_cpu.md"
+        actions:
+          - log_alert
+          - send_notification
+
+      - alert: HighMemoryUsage
+        expr: memory_usage_percent > 95
+        for: 1m
+        severity: critical
+        summary: "Critical memory usage"
+        description: "Memory usage is above 95% for more than 1 minute. Current: {{ $value }}%"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/high_memory.md"
+        actions:
+          - log_alert
+          - send_notification
+          - trigger_cleanup
+
+      - alert: HighDiskUsage
+        expr: disk_usage_percent > 95
+        for: 5m
+        severity: critical
+        summary: "Critical disk space"
+        description: "Disk usage is above 95% for more than 5 minutes. Current: {{ $value }}%"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/high_disk.md"
+        actions:
+          - log_alert
+          - send_notification
+          - trigger_cleanup
+
+      - alert: HighLoadAverage
+        expr: load_average_1m > 5.0
+        for: 5m
+        severity: critical
+        summary: "High system load"
+        description: "System load average is above 5.0 for more than 5 minutes. Current: {{ $value }}"
+        actions:
+          - log_alert
+          - send_notification
+
+  # Service Alerts
+  service_alerts:
+    rules:
+      - alert: ServiceDown
+        expr: service_status != "healthy"
+        for: 30s
+        severity: critical
+        summary: "Critical service down"
+        description: "Service {{ $labels.service_name }} is not responding or unhealthy"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/service_down.md"
+        actions:
+          - log_alert
+          - send_notification
+          - attempt_restart
+
+      - alert: SlowServiceResponse
+        expr: service_response_time_ms > 5000
+        for: 2m
+        severity: critical
+        summary: "Service response time critical"
+        description: "Service {{ $labels.service_name }} response time is above 5 seconds. Current: {{ $value }}ms"
+        actions:
+          - log_alert
+          - send_notification
+
+      - alert: DegradedServiceResponse
+        expr: service_response_time_ms > 2000
+        for: 5m
+        severity: warning
+        summary: "Service response time degraded"
+        description: "Service {{ $labels.service_name }} response time is degraded. Current: {{ $value }}ms"
+        actions:
+          - log_alert
+
+      - alert: MCPAgentMailDown
+        expr: service_mcp_agent_mail_status != "healthy"
+        for: 30s
+        severity: critical
+        summary: "MCP Agent Mail service is down"
+        description: "Critical service MCP Agent Mail is not responding"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/mcp_agent_mail.md"
+        actions:
+          - log_alert
+          - send_notification
+          - restart_service
+
+      - alert: OllamaServiceDown
+        expr: service_ollama_status != "healthy"
+        for: 1m
+        severity: critical
+        summary: "Ollama AI service is down"
+        description: "Critical service Ollama AI is not responding"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/ollama.md"
+        actions:
+          - log_alert
+          - send_notification
+          - restart_service
+
+  # Database Alerts
+  database_alerts:
+    rules:
+      - alert: DatabaseUnavailable
+        expr: database_status != "healthy"
+        for: 1m
+        severity: critical
+        summary: "Database unavailable"
+        description: "Database {{ $labels.database_name }} is not accessible or corrupted"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/database_issues.md"
+        actions:
+          - log_alert
+          - send_notification
+          - backup_database
+
+      - alert: DatabaseQuerySlow
+        expr: database_query_time_ms > 5000
+        for: 3m
+        severity: warning
+        summary: "Database queries are slow"
+        description: "Database {{ $labels.database_name }} queries are taking longer than 5 seconds"
+        actions:
+          - log_alert
+
+      - alert: DatabaseSizeWarning
+        expr: database_size_mb > 1000
+        for: 1h
+        severity: warning
+        summary: "Database size growing large"
+        description: "Database {{ $labels.database_name }} size is above 1GB: {{ $value }}MB"
+        actions:
+          - log_alert
+          - schedule_maintenance
+
+  # MEOW Stack Alerts
+  meow_stack_alerts:
+    rules:
+      - alert: BeadsSystemUnavailable
+        expr: beads_status != "healthy"
+        for: 2m
+        severity: critical
+        summary: "Beads task system unavailable"
+        description: "The Beads task tracking system is not functioning properly"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/beads_system.md"
+        actions:
+          - log_alert
+          - send_notification
+
+      - alert: MoleculeMarketplaceDown
+        expr: marketplace_status != "healthy"
+        for: 5m
+        severity: warning
+        summary: "Molecule marketplace degraded"
+        description: "The molecule marketplace is not functioning properly"
+        actions:
+          - log_alert
+
+      - alert: HooksNotWorking
+        expr: hooks_status != "healthy"
+        for: 1m
+        severity: critical
+        summary: "Claude hooks not functioning"
+        description: "Claude hooks system is not working, which may break automated workflows"
+        runbook: "/home/ubuntu/projects/deere/monitoring/runbooks/hooks.md"
+        actions:
+          - log_alert
+          - send_notification
+
+  # Application-Level Alerts
+  application_alerts:
+    rules:
+      - alert: HighErrorRate
+        expr: error_rate_percent > 10
+        for: 5m
+        severity: warning
+        summary: "High application error rate"
+        description: "Application error rate is above 10% for more than 5 minutes"
+        actions:
+          - log_alert
+
+      - alert: WorkflowFailures
+        expr: workflow_failure_rate > 20
+        for: 10m
+        severity: warning
+        summary: "High workflow failure rate"
+        description: "Workflow failure rate is above 20% for more than 10 minutes"
+        actions:
+          - log_alert
+
+# Alert actions configuration
+alert_actions:
+
+  log_alert:
+    type: "file_logger"
+    config:
+      file: "/home/ubuntu/projects/deere/monitoring/logging/alerts.log"
+      format: "{{ .Timestamp }} - {{ .Severity }} - {{ .AlertName }} - {{ .Summary }}"
+      max_size_mb: 50
+      backup_count: 5
+
+  send_notification:
+    type: "notification"
+    config:
+      channels:
+        - console
+        - file
+      cooldown: 300  # 5 minutes between identical alerts
+
+  attempt_restart:
+    type: "service_restart"
+    config:
+      max_attempts: 3
+      delay_seconds: 30
+      services:
+        mcp-agent-mail: "sudo systemctl restart mcp-agent-mail"
+        ollama: "sudo systemctl restart ollama"
+
+  restart_service:
+    type: "immediate_restart"
+    config:
+      services:
+        mcp-agent-mail: "sudo systemctl restart mcp-agent-mail"
+        ollama: "sudo systemctl restart ollama"
+
+  trigger_cleanup:
+    type: "cleanup"
+    config:
+      scripts:
+        - "/home/ubuntu/projects/deere/monitoring/scripts/cleanup_logs.sh"
+        - "/home/ubuntu/projects/deere/monitoring/scripts/cleanup_temp.sh"
+
+  backup_database:
+    type: "backup"
+    config:
+      databases:
+        beads: "/home/ubuntu/.beads/beads.db"
+        agent_mail: "/home/ubuntu/mcp_agent_mail/storage.sqlite3"
+        marketplace: "/home/ubuntu/projects/deere/molecule-marketplace/marketplace.db"
+      backup_dir: "/home/ubuntu/projects/deere/monitoring/backups"
+
+  schedule_maintenance:
+    type: "maintenance_scheduler"
+    config:
+      tasks:
+        - database_vacuum
+        - log_rotation
+        - metrics_cleanup
+
+# Alert severity levels
+severity_levels:
+  critical:
+    priority: 1
+    escalation_time: 5m
+    notification_channels: ["console", "file", "email"]
+    auto_actions: true
+
+  warning:
+    priority: 2
+    escalation_time: 15m
+    notification_channels: ["console", "file"]
+    auto_actions: false
+
+  info:
+    priority: 3
+    escalation_time: 30m
+    notification_channels: ["file"]
+    auto_actions: false
+
+# Alert routing and escalation
+routing:
+  default_route:
+    severity: "warning"
+    actions: ["log_alert"]
+
+  critical_route:
+    severity: "critical"
+    actions: ["log_alert", "send_notification"]
+    escalation:
+      - time: 5m
+        actions: ["attempt_restart"]
+      - time: 15m
+        actions: ["send_email_alert"]
+
+# Alert suppression and grouping
+suppression:
+  rules:
+    - name: "maintenance_window"
+      schedule: "0 2 * * *"  # Daily 2-4 AM maintenance window
+      duration: "2h"
+      suppress_all: true
+
+    - name: "startup_grace_period"
+      condition: "system_uptime < 300"  # 5 minutes after startup
+      suppress_alerts:
+        - "ServiceDown"
+        - "DatabaseUnavailable"
+
+grouping:
+  rules:
+    - name: "service_issues"
+      group_by: ["service_name"]
+      group_interval: "10s"
+      group_wait: "30s"
+
+    - name: "system_issues"
+      group_by: ["alert_type", "severity"]
+      group_interval: "30s"
+      group_wait: "60s"
+
+# Health check integration
+health_check_integration:
+  enabled: true
+  endpoint: "http://localhost:8766/alerts"
+  update_interval: 30
+  alert_history_limit: 1000
+
+# Metrics for alerting
+metrics_collection:
+  enabled: true
+  interval: 30
+  retention: 7d
+  metrics:
+    - alert_count_by_severity
+    - alert_response_time
+    - false_positive_rate
+    - escalation_frequency
