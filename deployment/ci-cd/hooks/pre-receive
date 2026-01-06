@@ -1,0 +1,135 @@
+#!/bin/bash
+
+# Gas Town MEOW Stack - Pre-receive Git Hook
+# Validates commits before deployment
+# Version: 1.0.0
+
+set -euo pipefail
+
+# Configuration
+PROJECT_ROOT="$(cd "$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")" && pwd)"
+LOG_FILE="${PROJECT_ROOT}/deployment/logs/git_hook_$(date +%Y%m%d_%H%M%S).log"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    local level=$1
+    shift
+    local message="$*"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "${timestamp} [${level}] ${message}" | tee -a "$LOG_FILE"
+}
+
+info() {
+    log "INFO" "${BLUE}$*${NC}"
+}
+
+warn() {
+    log "WARN" "${YELLOW}$*${NC}"
+}
+
+error() {
+    log "ERROR" "${RED}$*${NC}"
+}
+
+success() {
+    log "SUCCESS" "${GREEN}$*${NC}"
+}
+
+# Initialize logging
+mkdir -p "$(dirname "$LOG_FILE")"
+
+info "🔍 Git pre-receive hook starting validation..."
+
+# Read stdin for ref updates
+while read oldrev newrev refname; do
+    branch_name=$(echo "$refname" | sed 's/refs\/heads\///')
+    
+    info "Processing push to branch: $branch_name"
+    info "Commit range: ${oldrev:0:8}..${newrev:0:8}"
+    
+    # Skip validation for certain branches
+    case "$branch_name" in
+        "development"|"dev"|"feature/"*)
+            info "Skipping validation for development branch: $branch_name"
+            continue
+            ;;
+    esac
+    
+    # Validate production deployments
+    if [[ "$branch_name" == "main" || "$branch_name" == "master" || "$branch_name" == "production" ]]; then
+        info "🔒 Production branch detected - running comprehensive validation"
+        
+        # Check commit messages
+        info "Validating commit messages..."
+        git rev-list "$oldrev..$newrev" | while read commit; do
+            commit_msg=$(git log --format=%B -n 1 "$commit")
+            
+            # Check for required patterns
+            if ! echo "$commit_msg" | grep -qE "(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .+"; then
+                error "Invalid commit message format in $commit"
+                error "Expected: type(scope): description"
+                exit 1
+            fi
+            
+            # Check for secrets
+            if git show "$commit" | grep -qiE "(password|secret|key|token)" && \
+               git show "$commit" | grep -qE "(=|:).*['\"][^'\"]{10,}['\"]"; then
+                error "Potential secret found in commit $commit"
+                exit 1
+            fi
+        done
+        
+        # Validate code quality
+        info "Running code quality checks..."
+        
+        # Check Python files
+        changed_python_files=$(git diff --name-only "$oldrev" "$newrev" | grep '\.py$' || true)
+        if [ -n "$changed_python_files" ]; then
+            echo "$changed_python_files" | while read file; do
+                if git show "$newrev:$file" | python3 -m py_compile -; then
+                    info "Python syntax check passed: $file"
+                else
+                    error "Python syntax error in: $file"
+                    exit 1
+                fi
+            done
+        fi
+        
+        # Check for required tests
+        if echo "$changed_python_files" | grep -q "\.py$" && ! git diff --name-only "$oldrev" "$newrev" | grep -q "test_.*\.py$"; then
+            warn "No test files modified - consider adding tests"
+        fi
+        
+        # Validate deployment readiness
+        info "Validating deployment readiness..."
+        
+        # Check for required files
+        required_files=(
+            "requirements.txt"
+            "setup_marketplace.py"
+            "deployment/scripts/deploy/deploy_meow_stack.sh"
+        )
+        
+        for file in "${required_files[@]}"; do
+            if ! git cat-file -e "$newrev:$file" 2>/dev/null; then
+                error "Required file missing: $file"
+                exit 1
+            fi
+        done
+        
+        # Check database migration compatibility
+        if git diff --name-only "$oldrev" "$newrev" | grep -q "schema\|migration\|database"; then
+            warn "Database changes detected - ensure migration compatibility"
+        fi
+        
+        success "✅ All production deployment validations passed"
+    fi
+done
+
+success "🎉 Git pre-receive validation completed successfully"

@@ -1,0 +1,80 @@
+2026-01-04 03:54:12 - Starting comprehensive health check
+2026-01-04 03:54:12 - Checking systemd services
+2026-01-04 03:54:12 - ✅ Service mcp-agent-mail: HEALTHY (active)
+2026-01-04 03:54:12 - ✅ Service ollama: HEALTHY (active)
+2026-01-04 03:54:12 - Checking service: mcp-agent-mail
+2026-01-04 03:54:12 - ❌ mcp-agent-mail: CRITICAL (HTTP 404)
+2026-01-04 03:54:12 - Checking service: ollama
+2026-01-04 03:54:12 - ✅ ollama: HEALTHY (HTTP 200, 11ms)
+2026-01-04 03:54:12 - Checking database: beads
+2026-01-04 03:54:12 - ✅ Database beads: HEALTHY (15 tables, .49MB, 3ms)
+2026-01-04 03:54:12 - Checking database: agent_mail
+2026-01-04 03:54:12 - ✅ Database agent_mail: HEALTHY (23 tables, .46MB, 2ms)
+2026-01-04 03:54:12 - Checking MEOW stack components
+2026-01-04 03:54:17 - ✅ Beads system: HEALTHY
+2026-01-04 03:54:17 - ⚠️  Molecule marketplace: DEGRADED (database not found)
+2026-01-04 03:54:17 - Checking system resources
+2026-01-04 03:54:17 - System resources: CPU=1.5%, Memory=2.4%, Disk=28%, Load=0.36, Status=healthy
+2026-01-04 03:54:17 - Checking hooks
+2026-01-04 03:54:17 - ✅ Hooks: HEALTHY (6 total, 6 executable)
+2026-01-04 03:54:17 - Health check completed - Overall status: CRITICAL
+2026-01-04 03:54:22 - Starting comprehensive health check
+2026-01-04 03:54:22 - Checking systemd services
+2026-01-04 03:54:22 - ✅ Service mcp-agent-mail: HEALTHY (active)
+2026-01-04 03:54:22 - ✅ Service ollama: HEALTHY (active)
+2026-01-04 03:54:22 - Checking service: mcp-agent-mail
+2026-01-04 03:54:22 - ❌ mcp-agent-mail: CRITICAL (HTTP 404)
+2026-01-04 03:54:22 - Checking service: ollama
+2026-01-04 03:54:22 - ✅ ollama: HEALTHY (HTTP 200, 6ms)
+2026-01-04 03:54:22 - Checking database: beads
+2026-01-04 03:54:22 - ✅ Database beads: HEALTHY (15 tables, .49MB, 2ms)
+2026-01-04 03:54:22 - Checking database: agent_mail
+2026-01-04 03:54:22 - ✅ Database agent_mail: HEALTHY (23 tables, .46MB, 2ms)
+2026-01-04 03:54:22 - Checking MEOW stack components
+2026-01-04 03:54:27 - ✅ Beads system: HEALTHY
+2026-01-04 03:54:27 - ⚠️  Molecule marketplace: DEGRADED (database not found)
+2026-01-04 03:54:27 - Checking system resources
+2026-01-04 03:54:28 - System resources: CPU=1.1%, Memory=2.4%, Disk=28%, Load=0.62, Status=healthy
+2026-01-04 03:54:28 - Checking hooks
+2026-01-04 03:54:28 - ✅ Hooks: HEALTHY (6 total, 6 executable)
+2026-01-04 03:54:28 - Health check completed - Overall status: CRITICAL
+2026-01-04 03:55:23 - Starting comprehensive health check
+2026-01-04 03:55:23 - Checking systemd services
+2026-01-04 03:55:23 - ✅ Service mcp-agent-mail: HEALTHY (active)
+2026-01-04 03:55:23 - ✅ Service ollama: HEALTHY (active)
+2026-01-04 03:55:23 - Checking service: mcp-agent-mail
+2026-01-04 03:55:23 - ❌ mcp-agent-mail: CRITICAL (HTTP 404)
+2026-01-04 03:55:23 - Checking service: ollama
+2026-01-04 03:55:23 - ✅ ollama: HEALTHY (HTTP 200, 6ms)
+2026-01-04 03:55:23 - Checking database: beads
+2026-01-04 03:55:23 - ✅ Database beads: HEALTHY (15 tables, .49MB, 2ms)
+2026-01-04 03:55:23 - Checking database: agent_mail
+2026-01-04 03:55:23 - ✅ Database agent_mail: HEALTHY (23 tables, .46MB, 2ms)
+2026-01-04 03:55:23 - Checking MEOW stack components
+2026-01-04 03:55:29 - ✅ Beads system: HEALTHY
+2026-01-04 03:55:29 - ⚠️  Molecule marketplace: DEGRADED (database not found)
+2026-01-04 03:55:29 - Checking system resources
+2026-01-04 03:55:29 - System resources: CPU=2.1%, Memory=2.4%, Disk=28%, Load=0.38, Status=healthy
+2026-01-04 03:55:29 - Checking hooks
+2026-01-04 03:55:29 - ✅ Hooks: HEALTHY (6 total, 6 executable)
+2026-01-04 03:55:29 - Health check completed - Overall status: CRITICAL
+2026-01-04 03:55:29 - Starting comprehensive health check
+2026-01-04 03:55:29 - Checking systemd services
+2026-01-04 03:55:29 - ✅ Service mcp-agent-mail: HEALTHY (active)
+2026-01-04 03:55:29 - ✅ Service ollama: HEALTHY (active)
+2026-01-04 03:55:29 - Checking service: mcp-agent-mail
+2026-01-04 03:55:29 - ❌ mcp-agent-mail: CRITICAL (HTTP 404)
+2026-01-04 03:55:29 - Checking service: ollama
+2026-01-04 03:55:29 - ✅ ollama: HEALTHY (HTTP 200, 6ms)
+2026-01-04 03:55:29 - Checking database: beads
+2026-01-04 03:55:29 - ✅ Database beads: HEALTHY (15 tables, .49MB, 3ms)
+2026-01-04 03:55:29 - Checking database: agent_mail
+2026-01-04 03:55:29 - ✅ Database agent_mail: HEALTHY (23 tables, .46MB, 2ms)
+2026-01-04 03:55:29 - Checking MEOW stack components
+2026-01-04 03:55:34 - ✅ Beads system: HEALTHY
+2026-01-04 03:55:34 - ⚠️  Molecule marketplace: DEGRADED (database not found)
+2026-01-04 03:55:34 - Checking system resources
+2026-01-04 03:55:34 - System resources: CPU=1.1%, Memory=2.4%, Disk=28%, Load=0.35, Status=healthy
+2026-01-04 03:55:34 - Checking hooks
+2026-01-04 03:55:34 - ✅ Hooks: HEALTHY (6 total, 6 executable)
+2026-01-04 03:55:34 - Health check completed - Overall status: CRITICAL

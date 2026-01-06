@@ -1,0 +1,18 @@
+timestamp: "2026-01-04 03:54:28"
+overall_status: "critical"
+components:
+  beads: "healthy"
+  ollama: "healthy"
+  db_beads: "healthy"
+  hooks: "healthy"
+  system: "healthy"
+  db_agent_mail: "healthy"
+  mcp-agent-mail: "critical"
+  marketplace: "degraded"
+  service_mcp-agent-mail: "healthy"
+  service_ollama: "healthy"
+summary:
+  healthy_count: 8
+  degraded_count: 1
+  critical_count: 1
+  total_count: 10
